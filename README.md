@@ -34,6 +34,7 @@ See `examples/gilts.csv`. Required columns are:
 | Column | Meaning | Example |
 |---|---|---|
 | `isin` | Gilt ISIN | `GB00BL68HJ26` |
+| `hl_code` | HL's short gilt code; included automatically when fetching from HL | `TS27` |
 | `name` | Descriptive name | `Treasury 0.375% 2026` |
 | `coupon_rate` | Annual coupon percentage, not a decimal fraction | `0.375` |
 | `maturity_date` | ISO date | `2026-10-22` |
@@ -73,7 +74,7 @@ The downloaded ZIP contains the fetched input data, ranked CSV, and Excel report
 gilt-fetch-hl reports/hl-current-gilts.csv --as-of 2026-07-22 --months 24
 ```
 
-The fetcher reads gilt identity, coupon, and maturity from HL's public conventional-gilt list. Because the list's single `Price` is not the executable offer, it visits each qualifying factsheet and records the displayed `Buy` value. Prices are delayed and indicative, so an actual dealing quote can differ. The command fails rather than using the midpoint when a factsheet has no usable buy price. Public-site layout changes or temporary blocking can also cause a run to fail; the manual CSV source remains available as a fallback.
+The fetcher reads the ISIN, HL short code (such as `TS27` or `T27A`), coupon, and maturity from HL's public conventional-gilt list. Because the list's single `Price` is not the executable offer, it visits each qualifying factsheet and records the displayed `Buy` value. Both report formats include the HL code near the front. Prices are delayed and indicative, so an actual dealing quote can differ. The command fails rather than using the midpoint when a factsheet has no usable buy price. Public-site layout changes or temporary blocking can also cause a run to fail; the manual CSV source remains available as a fallback.
 
 ## Calculation conventions and limitations
 

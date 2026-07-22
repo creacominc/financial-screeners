@@ -17,6 +17,7 @@ USER_AGENT = "uk-gilt-analyser/0.2 (+https://github.com/creacominc/uk-gilt-analy
 @dataclass(frozen=True)
 class HLListing:
     isin: str
+    hl_code: str
     name: str
     coupon_rate: str
     maturity_date: date
@@ -71,13 +72,15 @@ def parse_listings(html: str, as_of: date, months: int = 24) -> list[HLListing]:
             continue
         first = row[0][1]
         name, identifiers = first.split("GBP |", 1)
-        isin = identifiers.split("|", 1)[0].strip()
+        identifier_parts = [part.strip() for part in identifiers.split("|")]
+        isin = identifier_parts[0]
+        hl_code = identifier_parts[1] if len(identifier_parts) > 1 else ""
         try:
             maturity = datetime.strptime(row[2][1], "%d %B %Y").date()
         except (ValueError, IndexError):
             continue
         if name.strip().lower().startswith("treasury") and as_of < maturity <= cutoff:
-            listings.append(HLListing(isin, name.strip(), row[1][1], maturity, urljoin(HL_GILTS_URL, row[0][0] or "")))
+            listings.append(HLListing(isin, hl_code, name.strip(), row[1][1], maturity, urljoin(HL_GILTS_URL, row[0][0] or "")))
     return listings
 
 
@@ -108,7 +111,8 @@ def fetch_hl_gilts(as_of: date, months: int = 24, pause_seconds: float = 0.25) -
     rows = []
     for listing in parse_listings(_fetch(HL_GILTS_URL), as_of, months):
         rows.append({
-            "isin": listing.isin, "name": listing.name, "coupon_rate": listing.coupon_rate,
+            "isin": listing.isin, "hl_code": listing.hl_code, "name": listing.name,
+            "coupon_rate": listing.coupon_rate,
             "maturity_date": listing.maturity_date.isoformat(),
             "clean_buy_price": parse_buy_price(_fetch(listing.detail_url), listing.isin),
             "redemption_value": "100",
@@ -123,7 +127,7 @@ def fetch_hl_gilts(as_of: date, months: int = 24, pause_seconds: float = 0.25) -
 def write_input_csv(rows: list[dict[str, str]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=("isin", "name", "coupon_rate", "maturity_date", "clean_buy_price", "redemption_value"))
+        writer = csv.DictWriter(handle, fieldnames=("isin", "hl_code", "name", "coupon_rate", "maturity_date", "clean_buy_price", "redemption_value"))
         writer.writeheader()
         writer.writerows(rows)
 

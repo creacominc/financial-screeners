@@ -26,6 +26,7 @@ def read_gilts(path: Path) -> list[Gilt]:
                     maturity_date=date.fromisoformat(row["maturity_date"].strip()),
                     clean_buy_price=Decimal(row["clean_buy_price"].strip()),
                     redemption_value=Decimal((row.get("redemption_value") or "100").strip()),
+                    hl_code=(row.get("hl_code") or "").strip(),
                 ))
             except (ValueError, ArithmeticError) as error:
                 raise ValueError(f"invalid input on CSV line {line}: {error}") from error
@@ -33,7 +34,7 @@ def read_gilts(path: Path) -> list[Gilt]:
 
 
 COLUMNS = (
-    "rank", "isin", "name", "coupon_rate_pct", "maturity_date", "settlement_date",
+    "rank", "isin", "hl_code", "name", "coupon_rate_pct", "maturity_date", "settlement_date",
     "clean_buy_price_per_100", "accrued_interest_per_100", "dirty_price_per_100",
     "investment_budget", "dealing_fee", "nominal_purchased", "clean_consideration",
     "accrued_interest_paid", "total_initial_cost", "unused_cash", "coupon_income",
@@ -44,7 +45,8 @@ COLUMNS = (
 
 def _row(rank: int, item: Analysis) -> dict[str, object]:
     return {
-        "rank": rank, "isin": item.gilt.isin, "name": item.gilt.name,
+        "rank": rank, "isin": item.gilt.isin, "hl_code": item.gilt.hl_code,
+        "name": item.gilt.name,
         "coupon_rate_pct": item.gilt.coupon_rate, "maturity_date": item.gilt.maturity_date,
         "settlement_date": item.settlement_date,
         "clean_buy_price_per_100": item.gilt.clean_buy_price,
@@ -88,8 +90,9 @@ def write_reports(analyses: list[Analysis], output_prefix: Path) -> tuple[Path, 
     sheet.freeze_panes = "A2"
     sheet.auto_filter.ref = sheet.dimensions
     sheet.column_dimensions["B"].width = 16
-    sheet.column_dimensions["C"].width = 34
-    for column in range(4, len(COLUMNS) + 1):
+    sheet.column_dimensions["C"].width = 12
+    sheet.column_dimensions["D"].width = 34
+    for column in range(5, len(COLUMNS) + 1):
         for cell in sheet.iter_cols(min_col=column, max_col=column, min_row=2):
             for value in cell:
                 if isinstance(value.value, float):
