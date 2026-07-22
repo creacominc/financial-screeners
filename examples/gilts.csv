@@ -1,0 +1,3 @@
+isin,name,coupon_rate,maturity_date,clean_buy_price,redemption_value
+SAMPLE0001,Illustrative Treasury 0.125% 2027,0.125,2027-01-30,99.10,100
+SAMPLE0002,Illustrative Treasury 0.375% 2027,0.375,2027-10-22,98.86,100

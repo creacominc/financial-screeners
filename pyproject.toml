@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "uk-gilt-analyser"
+version = "0.1.0"
+description = "Compare conventional UK gilts held to maturity"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["openpyxl>=3.1,<4"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9"]
+
+[project.scripts]
+gilt-analyser = "gilt_analyser.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
