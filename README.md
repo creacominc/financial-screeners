@@ -1,6 +1,6 @@
 # UK Gilt Analyser
 
-A small Python command-line application for comparing **conventional UK gilts held to maturity** from clean buy prices supplied in a CSV. It does not scrape or download live prices.
+A small Python command-line application for comparing **conventional UK gilts held to maturity**. It can fetch current public Hargreaves Lansdown buy prices or use clean buy prices supplied in a CSV.
 
 ## What it calculates
 
@@ -56,23 +56,29 @@ gilt-analyser examples/gilts.csv \\
 
 This creates `reports/gilts-2026-07-22.csv` and `.xlsx`. If `--settlement-date` is omitted, today's date is used. The investment is a budget **per gilt comparison**, not divided across the rows. Nominal holdings are rounded down to the nearest £0.01 so the fee and dirty consideration do not exceed the budget; unused cash is reported. Yield is measured on capital actually deployed.
 
-
 ## Run from a phone with GitHub Actions
 
 The repository includes a manually triggered workflow, so no local computer is required:
 
-1. Update `examples/gilts.csv` with the current clean offer prices and commit the change.
-2. Open the repository's **Actions** tab and select **Run gilt analysis**.
-3. Choose **Run workflow**, enter the investment amount, HL fee, settlement date, and input CSV path, then start it.
+1. Open the repository's **Actions** tab and select **Run gilt analysis**.
+2. Choose **Run workflow**, enter the investment amount, HL fee, and settlement date. Leave **Price data source** set to **Fetch current HL buy prices**.
+3. Start the workflow. It downloads conventional gilts maturing after the settlement date and within the next 24 calendar months, then uses the displayed HL **Buy** prices.
 4. Open the completed workflow run and download the `gilt-reports-YYYY-MM-DD` artifact.
 
-The downloaded ZIP contains both the ranked CSV and Excel reports. The workflow runs the full test suite before generating them and retains the artifact for 30 days.
+The downloaded ZIP contains the fetched input data, ranked CSV, and Excel report. The workflow runs the full test suite before fetching prices and retains the artifact for 30 days. To use hand-entered data instead, select **Use repository CSV** and supply its path.
+
+## Fetch HL prices locally
+
+```bash
+gilt-fetch-hl reports/hl-current-gilts.csv --as-of 2026-07-22 --months 24
+```
+
+The fetcher reads gilt identity, coupon, and maturity from HL's public conventional-gilt list. Because the list's single `Price` is not the executable offer, it visits each qualifying factsheet and records the displayed `Buy` value. Prices are delayed and indicative, so an actual dealing quote can differ. The command fails rather than using the midpoint when a factsheet has no usable buy price. Public-site layout changes or temporary blocking can also cause a run to fail; the manual CSV source remains available as a fallback.
 
 ## Calculation conventions and limitations
 
-This initial version assumes normal cum-dividend settlement and a regular semi-annual coupon schedule whose month and day are anchored to maturity. It does not yet model the special UK gilt ex-dividend period, irregular first/last coupons, settlement holidays, index-linked gilts, strips, taxes, custody charges, reinvestment of coupons, or live price retrieval. Use a settlement date before maturity.
+This version assumes normal cum-dividend settlement and a regular semi-annual coupon schedule whose month and day are anchored to maturity. It does not yet model the special UK gilt ex-dividend period, irregular first/last coupons, settlement holidays, index-linked gilts, strips, taxes, custody charges, or reinvestment of coupons. Use a settlement date before maturity.
 
 ## Development
 
 All financial behavior must be covered by automated tests. Run `pytest` before committing. See `AGENTS.md` for the precise conventions contributors must preserve.
-
