@@ -22,6 +22,14 @@ on:
         required: true
         default: examples/gilts.csv
         type: string
+      price_source:
+        description: Price data source
+        required: true
+        default: "Fetch current HL buy prices"
+        type: choice
+        options:
+          - Fetch current HL buy prices
+          - Use repository CSV
 
 permissions:
   contents: read
@@ -48,6 +56,7 @@ jobs:
         run: pytest
 
       - name: Validate input CSV path
+        if: inputs.price_source == 'Use repository CSV'
         env:
           INPUT_CSV: ${{ inputs.input_csv }}
         run: |
@@ -63,9 +72,13 @@ jobs:
               raise SystemExit(f"Input CSV does not exist: {input_csv}")
           PY
 
+      - name: Fetch current HL prices
+        if: inputs.price_source == 'Fetch current HL buy prices'
+        run: gilt-fetch-hl reports/hl-current-gilts.csv --as-of "${{ inputs.settlement_date }}" --months 24
+
       - name: Generate reports
         env:
-          INPUT_CSV: ${{ inputs.input_csv }}
+          INPUT_CSV: ${{ inputs.price_source == 'Fetch current HL buy prices' && 'reports/hl-current-gilts.csv' || inputs.input_csv }}
           INVESTMENT: ${{ inputs.investment }}
           FEE: ${{ inputs.fee }}
           SETTLEMENT_DATE: ${{ inputs.settlement_date }}
