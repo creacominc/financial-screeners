@@ -56,6 +56,18 @@ gilt-analyser examples/gilts.csv \\
 
 This creates `reports/gilts-2026-07-22.csv` and `.xlsx`. If `--settlement-date` is omitted, today's date is used. The investment is a budget **per gilt comparison**, not divided across the rows. Nominal holdings are rounded down to the nearest £0.01 so the fee and dirty consideration do not exceed the budget; unused cash is reported. Yield is measured on capital actually deployed.
 
+
+## Run from a phone with GitHub Actions
+
+The repository includes a manually triggered workflow, so no local computer is required:
+
+1. Update `examples/gilts.csv` with the current clean offer prices and commit the change.
+2. Open the repository's **Actions** tab and select **Run gilt analysis**.
+3. Choose **Run workflow**, enter the investment amount, HL fee, settlement date, and input CSV path, then start it.
+4. Open the completed workflow run and download the `gilt-reports-YYYY-MM-DD` artifact.
+
+The downloaded ZIP contains both the ranked CSV and Excel reports. The workflow runs the full test suite before generating them and retains the artifact for 30 days.
+
 ## Calculation conventions and limitations
 
 This initial version assumes normal cum-dividend settlement and a regular semi-annual coupon schedule whose month and day are anchored to maturity. It does not yet model the special UK gilt ex-dividend period, irregular first/last coupons, settlement holidays, index-linked gilts, strips, taxes, custody charges, reinvestment of coupons, or live price retrieval. Use a settlement date before maturity.
