@@ -11,6 +11,7 @@ class Gilt:
     maturity_date: date
     clean_buy_price: Decimal
     redemption_value: Decimal = Decimal("100")
+    hl_code: str = ""
 
 
 @dataclass(frozen=True)
@@ -45,4 +46,3 @@ class Analysis:
     total_cash_profit: Decimal
     annualised_yield: Decimal
     cashflows: tuple[CashFlow, ...]
-
