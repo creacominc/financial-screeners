@@ -12,9 +12,9 @@ from gilt_analyser.reporting import read_gilts, write_reports
 def test_read_and_write_ranked_reports(tmp_path) -> None:
     source = tmp_path / "input.csv"
     source.write_text(
-        "isin,name,coupon_rate,maturity_date,clean_buy_price\n"
-        "LOW,Low return,0,2027-01-01,100\n"
-        "HIGH,High return,0,2027-01-01,95\n",
+        "isin,hl_code,name,coupon_rate,maturity_date,clean_buy_price\n"
+        "LOW,LOW27,Low return,0,2027-01-01,100\n"
+        "HIGH,HIGH27,High return,0,2027-01-01,95\n",
         encoding="utf-8",
     )
     analyses = [analyse_gilt(g, date(2026, 1, 1), Decimal("1000"), Decimal("0")) for g in read_gilts(source)]
@@ -22,7 +22,18 @@ def test_read_and_write_ranked_reports(tmp_path) -> None:
     with csv_path.open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
     assert [row["isin"] for row in rows] == ["HIGH", "LOW"]
+    assert rows[0]["hl_code"] == "HIGH27"
     assert rows[0]["cgt_exempt_redemption_gain"] != ""
     workbook = load_workbook(xlsx_path, read_only=True)
     assert workbook["Gilt comparison"]["B2"].value == "HIGH"
+    assert workbook["Gilt comparison"]["C2"].value == "HIGH27"
 
+
+def test_input_without_optional_hl_code_remains_supported(tmp_path) -> None:
+    source = tmp_path / "input.csv"
+    source.write_text(
+        "isin,name,coupon_rate,maturity_date,clean_buy_price\n"
+        "OLD,Older input,0,2027-01-01,99\n",
+        encoding="utf-8",
+    )
+    assert read_gilts(source)[0].hl_code == ""
