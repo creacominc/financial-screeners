@@ -16,7 +16,6 @@ on:
       settlement_date:
         description: Settlement date (YYYY-MM-DD)
         required: true
-        default: "2026-07-22"
         type: string
       input_csv:
         description: Input CSV path in this repository
