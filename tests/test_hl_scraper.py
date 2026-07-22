@@ -16,6 +16,7 @@ LIST_HTML = """
 def test_listings_are_conventional_and_within_calendar_month_window() -> None:
     rows = parse_listings(LIST_HTML, date(2026, 7, 22), months=24)
     assert [row.isin for row in rows] == ["GB00AAA00001", "GB00BBB00002"]
+    assert [row.hl_code for row in rows] == ["AAA", "BBB"]
     assert rows[1].detail_url == "https://www.hl.co.uk/shares/shares-search-results/BBB"
 
 
