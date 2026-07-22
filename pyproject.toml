@@ -15,6 +15,7 @@ dev = ["pytest>=8,<9"]
 
 [project.scripts]
 gilt-analyser = "gilt_analyser.cli:main"
+gilt-fetch-hl = "gilt_analyser.hl_scraper:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -22,4 +23,3 @@ where = ["src"]
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]
-
