@@ -1,0 +1,3 @@
+cusip,name,security_type,coupon_rate,maturity_date,clean_buy_price,minimum_nominal,nominal_increment,maximum_nominal,broker_ytm_pct,quote_date,price_source,reason
+912828V49,US Treasury TIP 0.375% 01/15/2027,tips,0.375,2027-01-15,99.9063,1000,1000,3000000,0.750,2026-10-14,User-supplied Schwab Ask snapshot,Inflation-indexed TIPS are unsupported by the fixed-principal model
+912810PS1,US Treasury TIP 2.375% 01/15/2027,tips,2.375,2027-01-15,100.4219,1000,1000,3000000,0.681,2026-10-14,User-supplied Schwab Ask snapshot,Inflation-indexed TIPS are unsupported by the fixed-principal model

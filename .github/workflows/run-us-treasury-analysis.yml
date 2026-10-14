@@ -1,0 +1,94 @@
+name: Run US Treasury analysis
+
+on:
+  workflow_dispatch:
+    inputs:
+      investment:
+        description: Investment budget in USD per Treasury
+        required: true
+        default: "5000"
+        type: string
+      fee:
+        description: Dealing fee in USD
+        required: true
+        default: "0"
+        type: string
+      settlement_date:
+        description: Actual settlement date (YYYY-MM-DD)
+        required: true
+        type: string
+      input_csv:
+        description: Repository CSV path (used only for supplied quotes)
+        required: true
+        default: examples/us_treasuries.csv
+        type: string
+      price_source:
+        description: Price data source
+        required: true
+        default: Fetch current WSJ indicative quotes
+        type: choice
+        options:
+          - Fetch current WSJ indicative quotes
+          - Use repository CSV
+      months:
+        description: Maturity window in calendar months for fetched quotes
+        required: true
+        default: "24"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  analyse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install project
+        run: python -m pip install -e ".[dev]"
+      - name: Run all tests
+        run: pytest
+      - name: Validate and snapshot input
+        if: inputs.price_source == 'Use repository CSV'
+        env:
+          INPUT_CSV: ${{ inputs.input_csv }}
+        run: |
+          python - <<'PY'
+          import os
+          import shutil
+          from pathlib import Path
+          repository = Path.cwd().resolve()
+          source = (repository / os.environ['INPUT_CSV']).resolve()
+          if repository not in source.parents or not source.is_file():
+              raise SystemExit('Input CSV must be an existing file inside the repository')
+          Path('reports').mkdir(exist_ok=True)
+          shutil.copyfile(source, 'reports/us_treasuries_input.csv')
+          PY
+      - name: Generate US Treasury reports
+        env:
+          INVESTMENT: ${{ inputs.investment }}
+          FEE: ${{ inputs.fee }}
+          SETTLEMENT_DATE: ${{ inputs.settlement_date }}
+          PRICE_SOURCE: ${{ inputs.price_source }}
+          MONTHS: ${{ inputs.months }}
+        run: |
+          if [ "$PRICE_SOURCE" = "Use repository CSV" ]; then
+            us-treasury-analyser reports/us_treasuries_input.csv \
+              --investment "$INVESTMENT" --fee "$FEE" \
+              --settlement-date "$SETTLEMENT_DATE" --skip-unaffordable --output reports/us_treasuries
+          else
+            us-treasury-analyser --fetch-wsj --months "$MONTHS" \
+              --investment "$INVESTMENT" --fee "$FEE" \
+              --settlement-date "$SETTLEMENT_DATE" --skip-unaffordable --output reports/us_treasuries
+          fi
+      - uses: actions/upload-artifact@v6
+        with:
+          name: us-treasury-reports-${{ inputs.settlement_date }}
+          path: reports/us_treasuries*
+          if-no-files-found: error
+          retention-days: 30

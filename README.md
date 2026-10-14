@@ -14,6 +14,8 @@ A small Python command-line application for comparing **conventional UK gilts he
 
 Money and rate calculations use Python `Decimal`. Excel cells are converted to numeric values only when the already-calculated results are written.
 
+A separate [US Treasury analyser](US_TREASURIES.md) fetches public indicative WSJ quotes for Treasury bills and fixed-rate notes/bonds in the next 24 months, or accepts supplied broker offer prices. It writes `us_treasuries.csv` and Excel using the same ranking approach, with its own command, input format and GitHub workflow.
+
 ## Setup
 
 Requires Python 3.11 or later.

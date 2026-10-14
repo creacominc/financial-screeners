@@ -1,0 +1,4 @@
+cusip,name,security_type,coupon_rate,maturity_date,clean_buy_price,minimum_nominal,nominal_increment,quote_date,price_source
+DEMO-BILL,Illustrative Treasury bill,bill,0,2027-01-14,99,1000,1000,2026-10-14,Illustrative only - replace with Schwab offer quote
+DEMO-NOTE,Illustrative Treasury note,note,4,2027-10-15,99.5,1000,1000,2026-10-14,Illustrative only - replace with Schwab offer quote
+DEMO-BOND,Illustrative Treasury bond,bond,4.5,2028-02-29,100.25,1000,1000,2026-10-14,Illustrative only - replace with Schwab offer quote

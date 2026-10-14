@@ -16,6 +16,8 @@ dev = ["pytest>=8,<9"]
 [project.scripts]
 gilt-analyser = "gilt_analyser.cli:main"
 gilt-fetch-hl = "gilt_analyser.hl_scraper:main"
+us-treasury-analyser = "us_treasury_analyser.cli:main"
+us-treasury-fetch-wsj = "us_treasury_analyser.wsj_fetcher:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

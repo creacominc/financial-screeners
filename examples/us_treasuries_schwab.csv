@@ -1,0 +1,15 @@
+cusip,name,security_type,coupon_rate,maturity_date,clean_buy_price,minimum_nominal,nominal_increment,maximum_nominal,broker_ytm_pct,quote_date,price_source
+912797WR4,US Treasury BILL 01/26/2027,bill,0.000,2027-01-26,98.8267,1000,1000,15001000,4.207,2026-10-14,User-supplied Schwab Ask snapshot
+912797TM9,US Treasury BILL 01/21/2027,bill,0.000,2027-01-21,98.8839,1000,1000,15001000,4.204,2026-10-14,User-supplied Schwab Ask snapshot
+912797WQ6,US Treasury BILL 01/19/2027,bill,0.000,2027-01-19,98.9067,2700000,1000,15000000,4.203,2026-10-14,User-supplied Schwab Ask snapshot
+912797VU8,US Treasury BILL 01/28/2027,bill,0.000,2027-01-28,98.8065,1000,1000,15001000,4.199,2026-10-14,User-supplied Schwab Ask snapshot
+912797VT1,US Treasury BILL 01/14/2027,bill,0.000,2027-01-14,98.9666,600000,1000,10000000,4.188,2026-10-14,User-supplied Schwab Ask snapshot
+912797VS3,US Treasury BILL 01/07/2027,bill,0.000,2027-01-07,99.0485,1000,1000,15001000,4.174,2026-10-14,User-supplied Schwab Ask snapshot
+91282CME8,US Treasury 4.25% 12/31/2026,note,4.250,2026-12-31,100.0078,1000000,1000,40000000,4.161,2026-10-14,User-supplied Schwab Ask snapshot
+91282CDQ1,US Treasury 1.25% 12/31/2026,note,1.250,2026-12-31,99.3935,275000,1000,50000000,4.159,2026-10-14,User-supplied Schwab Ask snapshot
+912797VJ3,US Treasury BILL 12/31/2026,bill,0.000,2026-12-31,99.1306,605000,1000,10000000,4.157,2026-10-14,User-supplied Schwab Ask snapshot
+912797WP8,US Treasury BILL 01/12/2027,bill,0.000,2027-01-12,98.9969,1000000,1000,20000000,4.156,2026-10-14,User-supplied Schwab Ask snapshot
+912797WN3,US Treasury BILL 01/05/2027,bill,0.000,2027-01-05,99.0752,1000000,1000,20000000,4.155,2026-10-14,User-supplied Schwab Ask snapshot
+91282CJT9,US Treasury 4% 01/15/2027,note,4.000,2027-01-15,99.955,200000,1000,2500000,4.140,2026-10-14,User-supplied Schwab Ask snapshot
+912797WH6,US Treasury BILL 12/29/2026,bill,0.000,2026-12-29,99.1682,1000000,1000,20000000,4.082,2026-10-14,User-supplied Schwab Ask snapshot
+912828YX2,US Treasury 1.75% 12/31/2026,note,1.750,2026-12-31,99.5137,1000000,1000,40000000,4.073,2026-10-14,User-supplied Schwab Ask snapshot
