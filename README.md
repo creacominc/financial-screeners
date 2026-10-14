@@ -64,7 +64,12 @@ The repository includes a manually triggered workflow, so no local computer is r
 1. Open the repository's **Actions** tab and select **Run gilt analysis**.
 2. Choose **Run workflow**, enter the investment amount, HL fee, and settlement date. Leave **Price data source** set to **Fetch current HL buy prices**.
 3. Start the workflow. It downloads conventional gilts maturing after the settlement date and within the next 24 calendar months, then uses the displayed HL **Buy** prices.
-4. Open the completed workflow run and download the `gilt-reports-YYYY-MM-DD` artifact.
+4. Stay on **Actions → Run gilt analysis**. Your new run appears in the list of workflow runs; refresh the page if it has not appeared yet. Identify it by its start time and wait for a green tick, which means it succeeded.
+5. Click or tap that run's title to open its **Summary** page. If you are viewing the **analyse** job's logs instead, select **Summary** to return to the run overview.
+6. Scroll down to **Artifacts** and click or tap `gilt-reports-YYYY-MM-DD` (where the date is your settlement date) to download the ZIP. You must be signed into GitHub with access to this repository.
+7. Open the downloaded ZIP and extract its files, then open the `.xlsx` report in Excel or the `.csv` report in a spreadsheet app.
+
+If the run has a red cross, open the run and select **analyse** to inspect the failed step; a failed run may not have a report artifact. See [GitHub's artifact download instructions](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts) for more detail.
 
 The downloaded ZIP contains the fetched input data, ranked CSV, and Excel report. The workflow runs the full test suite before fetching prices and retains the artifact for 30 days. To use hand-entered data instead, select **Use repository CSV** and supply its path.
 
