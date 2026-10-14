@@ -9,7 +9,8 @@ A small Python command-line application for comparing **conventional UK gilts he
 - Nominal gilt quantity affordable within the investment budget after a configurable dealing fee.
 - Remaining coupons, redemption at par, total cash profit, and annual effective yield (XIRR using Actual/365 timing).
 - Coupon income separately from the redemption gain. Conventional UK gilts are generally exempt from UK Capital Gains Tax for individuals; coupon income can still be taxable. The program does not calculate personal tax and is not financial or tax advice.
-- Ranked CSV and Excel reports, ordered by net annualised return after the dealing fee.
+- CSV and Excel reports include approximate `months_to_maturity`, measured from settlement as actual days × 12 / 365 and rounded to two decimals.
+- Reports rank net annualised returns after the dealing fee in descending 0.1 percentage-point bands (for example, 4.20% up to but excluding 4.30%). Within each band, shorter time to maturity ranks first, then higher precise yield, then ISIN. Negative yields use the same floor-based bands. Precise yields remain in the report. Two yields on opposite sides of a band boundary stay in yield-band order even when very close.
 
 Money and rate calculations use Python `Decimal`. Excel cells are converted to numeric values only when the already-calculated results are written.
 

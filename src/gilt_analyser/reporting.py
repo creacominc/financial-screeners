@@ -1,6 +1,6 @@
 import csv
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, ROUND_FLOOR
 from pathlib import Path
 
 from openpyxl import Workbook
@@ -34,12 +34,13 @@ def read_gilts(path: Path) -> list[Gilt]:
 
 
 COLUMNS = (
-    "rank", "isin", "hl_code", "name", "coupon_rate_pct", "maturity_date", "settlement_date",
+    "rank", "isin", "hl_code", "name", "months_to_maturity", "net_annualised_return_pct",
+    "coupon_rate_pct", "maturity_date", "settlement_date",
     "clean_buy_price_per_100", "accrued_interest_per_100", "dirty_price_per_100",
     "investment_budget", "dealing_fee", "nominal_purchased", "clean_consideration",
     "accrued_interest_paid", "total_initial_cost", "unused_cash", "coupon_income",
     "redemption_proceeds", "cgt_exempt_redemption_gain", "total_proceeds",
-    "total_cash_profit", "net_annualised_return_pct",
+    "total_cash_profit",
 )
 
 
@@ -47,6 +48,11 @@ def _row(rank: int, item: Analysis) -> dict[str, object]:
     return {
         "rank": rank, "isin": item.gilt.isin, "hl_code": item.gilt.hl_code,
         "name": item.gilt.name,
+        "months_to_maturity": (
+            Decimal((item.gilt.maturity_date - item.settlement_date).days)
+            * Decimal("12") / Decimal("365")
+        ).quantize(Decimal("0.01")),
+        "net_annualised_return_pct": item.annualised_yield * Decimal("100"),
         "coupon_rate_pct": item.gilt.coupon_rate, "maturity_date": item.gilt.maturity_date,
         "settlement_date": item.settlement_date,
         "clean_buy_price_per_100": item.gilt.clean_buy_price,
@@ -59,12 +65,17 @@ def _row(rank: int, item: Analysis) -> dict[str, object]:
         "redemption_proceeds": item.redemption_proceeds,
         "cgt_exempt_redemption_gain": item.cgt_exempt_redemption_gain,
         "total_proceeds": item.total_proceeds, "total_cash_profit": item.total_cash_profit,
-        "net_annualised_return_pct": item.annualised_yield * Decimal("100"),
     }
 
 
 def ranked_rows(analyses: list[Analysis]) -> list[dict[str, object]]:
-    ordered = sorted(analyses, key=lambda item: item.annualised_yield, reverse=True)
+    # Fixed 0.1 percentage-point bands avoid non-transitive pairwise tolerances.
+    ordered = sorted(analyses, key=lambda item: (
+        -(item.annualised_yield / Decimal("0.001")).to_integral_value(rounding=ROUND_FLOOR),
+        (item.gilt.maturity_date - item.settlement_date).days,
+        -item.annualised_yield,
+        item.gilt.isin,
+    ))
     return [_row(rank, item) for rank, item in enumerate(ordered, start=1)]
 
 
@@ -86,7 +97,7 @@ def write_reports(analyses: list[Analysis], output_prefix: Path) -> tuple[Path, 
     for cell in sheet[1]:
         cell.font = Font(bold=True)
     for row in rows:
-        sheet.append([float(value) if isinstance(value, Decimal) else value for value in row.values()])
+        sheet.append([float(row[key]) if isinstance(row[key], Decimal) else row[key] for key in COLUMNS])
     sheet.freeze_panes = "A2"
     sheet.auto_filter.ref = sheet.dimensions
     sheet.column_dimensions["B"].width = 16
