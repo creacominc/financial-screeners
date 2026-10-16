@@ -3,11 +3,15 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 
-def report_reason(data, now):
+def report_reason(data, now, monthly_cutoff=None):
     local = now.astimezone(ZoneInfo('Europe/London'))
     if local.weekday() == 0:
         return 'weekly'
     buffer = data['policy']['cutoff_buffer_days']
+    if monthly_cutoff:
+        due = datetime.fromisoformat(monthly_cutoff).astimezone(ZoneInfo('Europe/London')) - timedelta(days=buffer)
+        if local.date() == due.date():
+            return 'monthly cutoff review'
     for stock in data['stocks']:
         execution = stock.get('execution', {})
         if 'cutoff' not in execution:

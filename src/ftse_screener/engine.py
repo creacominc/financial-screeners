@@ -1,4 +1,4 @@
-"""Pure Decimal screening. Evidence decisions are supplied by a human reviewer."""
+"""Pure Decimal screening. Evidence decisions require an identified reviewer and dated sources."""
 from datetime import date, datetime, timedelta
 from decimal import Decimal, ROUND_FLOOR, ROUND_CEILING
 from zoneinfo import ZoneInfo
@@ -33,7 +33,7 @@ def gate(stock, policy, today):
     if kind != "operating_company":
         return "REVIEW", "Unresolved security structure (including property structures)"
     valid = (evidence.get("decision") == "PASS" and evidence.get("rationale")
-             and evidence.get("reviewer") and evidence.get("year") == policy["review_year"]
+             and evidence.get("reviewer") and evidence.get("year") in policy.get("review_years", [policy["review_year"]])
              and fresh(evidence, today, policy["gate_max_days"])
              and not evidence.get("conflict", False))
     try:
@@ -57,7 +57,7 @@ def component(stock, specs, today, max_days):
         low, high = number(spec["low"]), number(spec["high"])
         if high <= low or spec["direction"] not in ("higher", "lower"):
             raise ValueError("invalid normalization anchors or direction")
-        if not fresh(metric, today, max_days) or metric.get("value") is None:
+        if not fresh(metric, today, spec.get("max_days", max_days)) or metric.get("value") is None:
             drivers.append(f'{spec["name"]}: unavailable/stale')
             continue
         value = number(metric["value"])
@@ -83,7 +83,7 @@ def affordability(stock, policy, today):
         return dict(dca_status="INELIGIBLE", dca_reason="Not eligible for supplied HL account/share class")
     price = stock.get("price", {})
     required = ("fee_gbp", "purchase_tax_rate", "minimum_gbp", "contribution_gbp", "cutoff")
-    if info.get("eligible") is not True or any(k not in info for k in required) or not fresh(price, today, policy["price_max_days"]):
+    if info.get("eligible") is not True or any(k not in info for k in required) or price.get("value") is None or not fresh(price, today, policy["price_max_days"]):
         return dict(dca_status="UNVERIFIED", dca_reason="Missing/stale price, costs, contribution or cutoff")
     p = number(price["value"])
     if price.get("currency") == "GBX":
@@ -130,7 +130,7 @@ def screen(data, today):
         if value < 0:
             raise ValueError("negative holding value")
         sectors[s["sector"]] = sectors.get(s["sector"], D(0)) + value
-    total = sum(sectors.values(), D(0))
+    total = sum(sectors.values(), D(0)) if not data.get("unresolved_holdings") else D(0)
     rows = []
     for stock in stocks:
         for key in ("isin", "ticker", "company", "share_class", "sector"):
@@ -143,7 +143,7 @@ def screen(data, today):
         membership = stock.get("membership", {})
         candidate = membership.get("ftse350") is True and fresh(membership, today, policy["membership_max_days"])
         row = dict(stock, gate_status=status, gate_reason=reason, candidate=candidate,
-                   total_score=None, rank=None, rank_change=None, components={}, coverage={}, drivers=[],
+                   total_score=None, rank=None, rank_change=None, selection_score=None, selection_rank=None, score_status="WITHHELD", components={}, coverage={}, drivers=[],
                    sector_weight=sectors.get(stock["sector"], D(0))/total if total else None,
                    portfolio_basis="values" if values_available else "holding counts fallback",
                    universe_reason="Current supplied FTSE350 membership" if candidate else "Outside/unverified/stale FTSE350 membership; purchase ranking withheld",
@@ -157,6 +157,9 @@ def screen(data, today):
                     row["components"][name] = score
                     row["coverage"][name] = coverage
                     row["drivers"].extend(drivers)
+                if all(v >= minimum for v in row["coverage"].values()) and all(row["components"].get(k) is not None for k in ("quality", "growth", "valuation", "trend")):
+                    row["selection_score"] = sum((row["components"][k] * WEIGHTS[k] for k in ("quality", "growth", "valuation", "trend")), D(0)) / D(".90")
+                    row["score_status"] = "SELECTION_ONLY: 90% investment components normalized to 100; portfolio diversification not assessed"
                 target = policy["sector_targets"].get(stock["sector"])
                 if total and target is not None:
                     target = number(target)
@@ -168,8 +171,9 @@ def screen(data, today):
                     row["components"]["diversification"] = None
                 if all(v >= minimum for v in row["coverage"].values()) and all(v is not None for v in row["components"].values()):
                     row["total_score"] = sum((row["components"][k]*w for k,w in WEIGHTS.items()), D(0))
+                    row["score_status"] = "COMPLETE: includes portfolio diversification"
             if row["total_score"] is None:
-                row["drivers"].append("Score withheld: missing sector policy, portfolio context or minimum coverage")
+                row["drivers"].append("Portfolio total withheld: missing portfolio context; investment selection score available" if row["selection_score"] is not None else "Score withheld: missing sector policy, portfolio context or minimum coverage")
         rows.append(row)
     ranked = sorted((r for r in rows if r["candidate"] and r["total_score"] is not None), key=lambda r: (-r["total_score"], r["isin"]))
     for rank, row in enumerate(ranked, 1):
@@ -177,4 +181,8 @@ def screen(data, today):
         if row.get("prior_rank") is not None:
             row["rank_change"] = int(row["prior_rank"]) - rank
         row["actionable"] = row["dca_status"] == "ESTIMATE" and not data.get("illustrative", False)
+    selection = sorted((r for r in rows if r["candidate"] and r["selection_score"] is not None), key=lambda r: (-r["selection_score"], r["isin"]))
+    for rank, row in enumerate(selection, 1):
+        row["selection_rank"] = rank
+        row["suggested_action"] = ("Consider increasing monthly purchase" if row.get("holding") else ("Consider adding to monthly purchases" if row.get("holding") is False or data.get("holdings_complete") else "Check ownership, then consider adding or increasing monthly purchase"))
     return rows

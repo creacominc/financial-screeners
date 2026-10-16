@@ -4,14 +4,24 @@ on:
   workflow_dispatch:
     inputs:
       input_json:
-        description: Repository configuration path (illustrative default does not fetch)
+        description: Configuration path (default fetches real FTSE350 data)
         type: string
-        default: examples/ftse_snapshot.json
+        default: config/ftse_live.json
         required: true
       fetch_hl:
         description: Refresh HL public data (real configurations only; demo stays offline)
         type: boolean
-        default: false
+        default: true
+      monthly_per_share:
+        description: Optional GBP amount PER SHARE for affordability estimates (not total budget)
+        type: string
+        default: ''
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/run-ftse-screening.yml'
+      - 'src/ftse_screener/**'
+      - 'config/ftse_live.json'
   schedule:
     # UTC year-round; Python uses Europe/London for weekly/monthly decisions.
     - cron: '15 7 * * *'
@@ -22,7 +32,7 @@ permissions:
 jobs:
   screen:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -34,9 +44,9 @@ jobs:
       - name: Validate configuration and select report date
         id: config
         env:
-          INPUT_PATH: ${{ inputs.input_json || vars.FTSE_INPUT_JSON }}
+          INPUT_PATH: ${{ inputs.input_json || vars.FTSE_INPUT_JSON || 'config/ftse_live.json' }}
           EVENT: ${{ github.event_name }}
-          FETCH_HL: ${{ inputs.fetch_hl }}
+          FETCH_HL: ${{ inputs.fetch_hl || github.event_name != 'workflow_dispatch' }}
         run: |
           python - <<'PY'
           import json, os, shutil
@@ -55,7 +65,12 @@ jobs:
           if mode == 'illustrative' and os.environ['FETCH_HL'] == 'true':
               print('::warning::Illustrative input selected: HL refresh skipped. Demo reports only; select examples/ftse_config.json with HL refresh for live discovery.')
           now = datetime.now(timezone.utc)
-          reason = 'manual' if os.environ['EVENT'] == 'workflow_dispatch' else report_reason(data, now)
+          monthly_cutoff = None
+          if os.environ['EVENT'] == 'schedule' and data['policy'].get('baseline_policy') == 'hl-public-v1':
+              from ftse_screener.hl import fetch
+              from ftse_screener.execution import parse_terms, next_cutoff, fetch_holidays, TERMS_URL
+              monthly_cutoff = next_cutoff(now.date(),parse_terms(fetch(TERMS_URL),now.date()),fetch_holidays())
+          reason = 'manual' if os.environ['EVENT'] == 'workflow_dispatch' else ('push validation' if os.environ['EVENT'] == 'push' else report_reason(data, now, monthly_cutoff))
           Path('reports').mkdir(exist_ok=True)
           shutil.copyfile(source, 'reports/ftse_input.json')
           with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
@@ -65,17 +80,26 @@ jobs:
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
               summary.write(f"FTSE report: {reason or 'not due today'}. Input: {source.name}. Mode: {mode}.\n")
           PY
+      - name: Cache today's public HL pages
+        if: steps.config.outputs.run == 'true' && steps.config.outputs.refresh == 'true'
+        uses: actions/cache@v5
+        with:
+          path: reports/hl-cache
+          key: ftse-hl-v1-${{ runner.os }}-${{ steps.config.outputs.date }}
       - name: Refresh HL public data
         if: steps.config.outputs.run == 'true' && steps.config.outputs.refresh == 'true'
-        run: ftse-fetch-hl reports/ftse_input.json reports/ftse_refreshed.json --discover-universe
+        run: ftse-fetch-hl reports/ftse_input.json reports/ftse_refreshed.json --discover-universe --full-metrics --cache-dir reports/hl-cache
       - name: Generate dated reports
         if: steps.config.outputs.run == 'true'
         env:
           AS_OF: ${{ steps.config.outputs.date }}
+          MONTHLY_PER_SHARE: ${{ inputs.monthly_per_share }}
         run: |
           input=reports/ftse_input.json
           if [ -f reports/ftse_refreshed.json ]; then input=reports/ftse_refreshed.json; fi
-          ftse-screener "$input" --as-of "$AS_OF" --output "reports/ftse-$AS_OF"
+          args=()
+          if [ -n "$MONTHLY_PER_SHARE" ]; then args+=(--monthly-per-share "$MONTHLY_PER_SHARE"); fi
+          ftse-screener "$input" --as-of "$AS_OF" --output "reports/ftse-$AS_OF" "${args[@]}"
           cat "reports/ftse-$AS_OF.md" >> "$GITHUB_STEP_SUMMARY"
       - name: Flag failure
         if: failure()

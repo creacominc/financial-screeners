@@ -1,0 +1,90 @@
+{
+  "illustrative": false,
+  "policy": {
+    "review_year": 2025,
+    "gate_max_days": 90,
+    "membership_max_days": 30,
+    "metric_max_days": 450,
+    "execution_max_days": 30,
+    "price_max_days": 7,
+    "cutoff_buffer_days": 5,
+    "minimum_coverage": "0.75",
+    "sector_metrics": {},
+    "sector_targets": {},
+    "baseline_policy": "hl-public-v1",
+    "review_years": [
+      2025,
+      2026
+    ]
+  },
+  "stocks": [],
+  "accounts": [
+    "Stocks and Shares ISA",
+    "Fund and Share Account"
+  ],
+  "security_reviews": {
+    "GB0009895292": {
+      "ticker": "AZN",
+      "security_type": "operating_company",
+      "decision": "PASS",
+      "year": 2025,
+      "date": "2026-10-16",
+      "source": "https://www.sec.gov/Archives/edgar/data/901832/000110465926019130/azn-20251231x20f.htm",
+      "section": "Passive Foreign Investment Company (PFIC) rules",
+      "reviewer": "Codex source review: issuer-statement-v1",
+      "rationale": "Issuer states it believed it was not a PFIC for the year ended 31 December 2025. Ordinary operating pharmaceutical company; this source-based screening decision does not determine 2026 status or the holder's historical PFIC position.",
+      "recheck_date": "2027-01-14",
+      "policy": "issuer-statement-v1: explicit recent issuer non-PFIC assessment; recheck in 90 days or on corporate event; not a tax opinion",
+      "purchase_tax_rate": "0.005",
+      "purchase_tax_basis": "Illustrative 0.5% UK SDRT estimate for this UK-incorporated ordinary share; verify applicability in HL. No personal tax calculation."
+    },
+    "GB0002374006": {
+      "ticker": "DGE",
+      "security_type": "operating_company",
+      "decision": "PASS",
+      "year": 2026,
+      "date": "2026-10-16",
+      "source": "https://www.sec.gov/Archives/edgar/data/835403/000162828026057527/dia045-arax2026annualrep.htm",
+      "section": "PFIC rules",
+      "reviewer": "Codex source review: issuer-statement-v1",
+      "rationale": "Issuer states its ordinary shares and ADSs should not currently be treated as PFIC stock and does not expect to become one in the foreseeable future. Reviewed from its 2026 annual report; factual annual assessment may change.",
+      "recheck_date": "2027-01-14",
+      "policy": "issuer-statement-v1: explicit recent issuer non-PFIC assessment; recheck in 90 days or on corporate event; not a tax opinion",
+      "purchase_tax_rate": "0.005",
+      "purchase_tax_basis": "Illustrative 0.5% UK SDRT estimate for this UK-incorporated ordinary share; verify applicability in HL. No personal tax calculation."
+    },
+    "GB0005405286": {
+      "ticker": "HSBA",
+      "security_type": "operating_company",
+      "decision": "PASS",
+      "year": 2025,
+      "date": "2026-10-16",
+      "source": "https://www.hsbc.com/-/files/hsbc/investors/hsbc-results/2025/annual/pdfs/hsbc-holdings-plc/260225-annual-report-and-accounts-2025.pdf?download=1",
+      "section": "Information for shareholders: US taxation / PFIC",
+      "reviewer": "Codex source review: issuer-statement-v1",
+      "rationale": "Issuer states that, based on audited financial statements and relevant market and shareholder data, it did not believe it was a passive investment company for 2025 and did not anticipate PFIC status in 2026. Active banking treatment is taken from issuer evidence, not inferred from interest income/assets or sector. No independent tax-status guarantee.",
+      "recheck_date": "2027-01-14",
+      "policy": "issuer-statement-v1: explicit recent issuer non-PFIC assessment; recheck in 90 days or on corporate event; not a tax opinion",
+      "purchase_tax_rate": "0.005",
+      "purchase_tax_basis": "Illustrative 0.5% UK SDRT estimate for this UK-incorporated ordinary share; verify applicability in HL. No personal tax calculation."
+    },
+    "GB00BVZK7T90": {
+      "ticker": "ULVR",
+      "security_type": "operating_company",
+      "decision": "PASS",
+      "year": 2025,
+      "date": "2026-10-16",
+      "source": "https://www.unilever.com/files/esef-nl-2025.html",
+      "section": "United States passive foreign investment company rules",
+      "reviewer": "Codex source review: issuer-statement-v1",
+      "rationale": "Issuer assesses its income, assets and activities and states it did not believe it was a PFIC for 2025 and did not expect that status in the foreseeable future. Ordinary consumer operating business; current-year status remains uncertain until year end.",
+      "recheck_date": "2027-01-14",
+      "policy": "issuer-statement-v1: explicit recent issuer non-PFIC assessment; recheck in 90 days or on corporate event; not a tax opinion",
+      "purchase_tax_rate": "0.005",
+      "purchase_tax_basis": "Illustrative 0.5% UK SDRT estimate for this UK-incorporated ordinary share; verify applicability in HL. No personal tax calculation.",
+      "identity_source": "https://www.unilever.com/files/demerger-of-tmicc-and-share-consolidation-of-unilever-plc.pdf"
+    }
+  },
+  "holdings": [],
+  "holdings_complete": false
+}

@@ -6,7 +6,7 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
-from .engine import screen
+from .engine import screen, fresh, number
 
 
 def json_default(value):
@@ -15,25 +15,67 @@ def json_default(value):
     raise TypeError(type(value).__name__)
 
 
-def write_reports(rows, prefix, today, illustrative=False):
+def write_reports(rows, prefix, today, illustrative=False, metadata=None):
     prefix.parent.mkdir(parents=True, exist_ok=True)
+    metadata = metadata or {}
+    refresh = metadata.get("refresh", {})
+    data_status = ("LIVE HL FETCH: " + refresh["fetched_at_utc"]) if refresh.get("full_metrics") else "SUPPLIED SNAPSHOT; no live refresh performed"
     payload = dict(as_of=today.isoformat(), illustrative=illustrative,
-                   data_status="SUPPLIED SNAPSHOT; no live refresh performed", rows=rows)
+                   data_status=data_status, refresh=refresh, unresolved_holdings=metadata.get("unresolved_holdings",[]), rows=rows)
     prefix.with_suffix(".json").write_text(json.dumps(payload, default=json_default, indent=2)+"\n")
     columns = ["company", "ticker", "isin", "share_class", "sector", "security_type", "holding", "holding_value_gbp", "candidate", "universe_reason",
-               "gate_status", "gate_reason", "total_score", "rank", "prior_rank", "rank_change", "components", "coverage",
+               "gate_status", "gate_reason", "selection_score", "selection_rank", "score_status", "suggested_action", "quality_score", "growth_score", "valuation_score", "trend_score", "pe", "eps_cagr_3y", "revenue_cagr_3y", "price_return_1y", "price_return_3y", "price_return_5y", "price_gbp", "price_date", "total_score", "rank", "prior_rank", "rank_change", "components", "coverage",
                "sector_weight", "portfolio_basis", "dca_status", "dca_reason", "estimated_shares", "residual_gbp", "report_due",
-               "actionable", "gate_evidence", "metrics", "membership", "execution", "price", "drivers"]
+               "actionable", "industry", "account_estimates", "data_warnings", "gate_evidence", "metrics", "membership", "execution", "price", "drivers"]
     with prefix.with_suffix(".csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns)
         writer.writeheader()
-        for row in rows:
+        for original in rows:
+            row = dict(original)
+            for name in ('quality','growth','valuation','trend'):
+                row[name+'_score'] = row['components'].get(name)
+            for name in ('pe','eps_cagr_3y','revenue_cagr_3y','price_return_1y','price_return_3y','price_return_5y'):
+                row[name] = row.get('metrics',{}).get(name,{}).get('value')
+            price = row.get('price',{})
+            row['price_date'] = price.get('date')
+            row['price_gbp'] = (Decimal(price['value']) / (100 if price['currency']=='GBX' else 1)) if price.get('value') and price.get('currency') in ('GBP','GBX') else None
             writer.writerow({k: json.dumps(row[k], default=json_default) if isinstance(row.get(k), (dict, list)) else row.get(k) for k in columns})
-    lines = [f"# FTSE screening — {today}", "", "ILLUSTRATIVE FIXTURE" if illustrative else "SUPPLIED SNAPSHOT — no live refresh performed", "",
+    lines = [f"# FTSE screening — {today}", "", "ILLUSTRATIVE FIXTURE" if illustrative else data_status, "",
              "Proposals require human review. PASS records a dated review decision, not a permanent PFIC guarantee.", ""]
-    groups = [("Ranked PASS candidates", lambda r: r["rank"] is not None),
+    def cell(value):
+        return str(value if value is not None else '—').replace('|','/').replace('\n',' ').replace('<','&lt;').replace('>','&gt;')
+    passed = [r for r in rows if r['gate_status']=='PASS']
+    selected = sorted((r for r in rows if r['selection_rank'] is not None),key=lambda r:r['selection_rank'])
+    lines += [f"Universe: **{len(rows)}** securities; evidence PASS: **{len(passed)}**; scored selection candidates: **{len(selected)}**; REVIEW: **{sum(r['gate_status']=='REVIEW' for r in rows)}**; EXCLUDE: **{sum(r['gate_status']=='EXCLUDE' for r in rows)}**.", "",
+              "Selection ranking uses Quality 30, Growth 25, Valuation 20 and Price/Trend 15, normalized to 100. The 10% portfolio diversification component is assessed separately when holdings and targets are supplied. Missing portfolio data never becomes a favourable diversification score.", "",
+              "**Coverage limitation:** this is a ranking of candidates with sufficient documented gate evidence and data, not a claim that unresolved companies are worse investments. REVIEW and EXCLUDE cases have no investment scores.", "",
+              "## Stock-selection shortlist (PASS evidence only)", "",
+              "| Selection rank | Company | Indicative GBP buy | Selection /100 | Quality | Growth | Valuation | Trend | Next action |",
+              "|---:|---|---:|---:|---:|---:|---:|---:|---|"]
+    for row in selected[:25]:
+        price=row.get('price',{})
+        p=(Decimal(price['value'])/(100 if price.get('currency')=='GBX' else 1)) if price.get('value') and price.get('currency') in ('GBP','GBX') else None
+        values=[row['selection_rank'],row['company'],p,row['selection_score']]+[row['components'].get(k) for k in ('quality','growth','valuation','trend')]+[row.get('suggested_action')]
+        lines.append('| '+' | '.join(cell(v.quantize(Decimal('.01')) if isinstance(v,Decimal) else v) for v in values)+' |')
+    if not selected:
+        lines += ['','No candidate currently meets the evidence and data requirements. See the review queue and data gaps below.']
+    lines += ['', '## Account checks and optional affordability scenarios', '',
+              'Account indications combine the exact factsheet’s account products with current public HL monthly-investing terms. Verify the share class in HL Monthly Savings before submission. A per-share scenario is not a proposed total portfolio budget.', '']
+    for row in selected[:25]:
+        for account in row.get('account_estimates',[]):
+            lines.append('- '+cell(f"{row['ticker']} — {account['account']}: {account['eligibility']}; {account['proposed_action']}; minimum estimated contribution for one share: £{account.get('minimum_for_one_share_gbp','unverified')}; {account['dca_status']}; estimated shares {account.get('estimated_shares') if account.get('estimated_shares') is not None else '—'}; residual £{account.get('residual_gbp') if account.get('residual_gbp') is not None else '—'}; instruction cutoff {account['cutoff']}"))
+    if not any(r.get('account_estimates') for r in selected):
+        lines.append('No verified account scenarios supplied.')
+    if refresh.get('financial_data_gaps'):
+        lines += ['',f"Financial-data gaps: {len(refresh['financial_data_gaps'])}. Affected fields are withheld; details are retained in JSON."]
+    if metadata.get('unresolved_holdings'):
+        lines += ['', '## Holdings requiring identity review', '', 'These holdings were not found in the fetched universe. Portfolio diversification scores are withheld until they are supplied as reviewable security records.']
+        for position in metadata['unresolved_holdings']:
+            lines.append('- '+cell(f"{position['isin']} — {position['account']}: REVIEW; {position['reason']}"))
+    lines.append('')
+    groups = [("Portfolio-adjusted PASS candidates (requires holdings and targets)", lambda r: r["rank"] is not None),
               ("Existing holdings comparison", lambda r: r.get("holding")),
-              ("Unranked PASS / outside universe", lambda r: r["gate_status"] == "PASS" and r["rank"] is None),
+              ("PASS evidence and scoring details", lambda r: r["gate_status"] == "PASS"),
               ("REVIEW queue", lambda r: r["gate_status"] == "REVIEW"),
               ("EXCLUDE audit", lambda r: r["gate_status"] == "EXCLUDE")]
     for title, include in groups:
@@ -43,6 +85,9 @@ def write_reports(rows, prefix, today, illustrative=False):
             # Escape user/provider content so it cannot alter the report structure.
             display_score = "withheld" if row["total_score"] is None else str(row["total_score"].quantize(Decimal(".01")))
             summary = f'{row["company"]} ({row["ticker"]}): {row["gate_status"]}; {row["gate_reason"]}; score {display_score}; rank {row["rank"] or "unranked"}; DCA {row["dca_status"]}: {row["dca_reason"]}. ' + "; ".join(row["drivers"])
+            summary += f'; selection rank {row["selection_rank"] or "withheld"}; indicative quote {row.get("price",{}).get("value")} {row.get("price",{}).get("currency")} dated {row.get("price",{}).get("date")}'
+            if row.get("gate_evidence",{}).get("source"):
+                summary += "; evidence: " + row["gate_evidence"]["source"]
             if not row["candidate"]:
                 summary += "; " + row["universe_reason"]
             lines.append("- " + summary.replace("\n", " ").replace("<", "&lt;").replace(">", "&gt;"))
@@ -52,19 +97,36 @@ def write_reports(rows, prefix, today, illustrative=False):
     prefix.with_suffix(".md").write_text("\n".join(lines), encoding="utf-8")
 
 
+
+def analyse(data, as_of):
+    rows = screen(data, as_of)
+    terms = data.get('hl_monthly_terms')
+    if terms and fresh(terms,as_of,data['policy']['execution_max_days']) and data.get('hl_cutoff'):
+        from .execution import account_scenarios
+        for row in rows:
+            row['account_estimates'] = account_scenarios(row,data,as_of,terms,data['hl_cutoff'])
+    return rows
+
+
 def main():
     parser = argparse.ArgumentParser(description="Screen supplied FTSE data with auditable evidence gates")
     parser.add_argument("input", type=Path)
+    parser.add_argument("--monthly-per-share", help="optional GBP affordability scenario per share, not total monthly budget")
     parser.add_argument("--as-of", type=date.fromisoformat, required=True)
     parser.add_argument("--output", type=Path, default=Path("reports/ftse"))
     args = parser.parse_args()
     try:
         data = json.loads(args.input.read_text(), parse_float=Decimal)
-        rows = screen(data, args.as_of)
-        write_reports(rows, args.output, args.as_of, data.get("illustrative", False))
+        if args.monthly_per_share:
+            value = number(args.monthly_per_share)
+            if value <= 0:
+                raise ValueError("Monthly per-share scenario must be positive")
+            data["monthly_per_share_gbp"] = str(value)
+        rows = analyse(data, args.as_of)
+        write_reports(rows, args.output, args.as_of, data.get("illustrative", False), data)
     except (OSError, ValueError, KeyError, TypeError, ArithmeticError) as error:
         parser.error(str(error))
-    print(f"Wrote {args.output}.csv, .json and .md (supplied snapshot)")
+    print(f"Wrote {args.output}.csv, .json and .md (see report data status)")
 
 
 if __name__ == "__main__":

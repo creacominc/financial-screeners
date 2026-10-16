@@ -3,12 +3,14 @@ import argparse
 import copy
 import json
 import time
-from datetime import datetime, timezone
+import hashlib
+from datetime import datetime, timezone, date
 from decimal import Decimal
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
 
 from .engine import number
 
@@ -40,10 +42,19 @@ def fetch(url):
     if parsed.scheme != 'https' or parsed.hostname != 'www.hl.co.uk':
         raise ValueError('Only public HTTPS HL pages are supported')
     request = Request(url, headers={'User-Agent': 'financial-screeners/0.1 personal-research'})
-    with urlopen(request, timeout=30) as response:
-        if urlparse(response.url).hostname != 'www.hl.co.uk':
-            raise ValueError('Unexpected HL redirect')
-        return response.read().decode('utf-8')
+    for attempt in range(3):
+        try:
+            with urlopen(request, timeout=30) as response:
+                if urlparse(response.url).hostname != 'www.hl.co.uk':
+                    raise ValueError('Unexpected HL redirect')
+                return response.read().decode('utf-8')
+        except HTTPError as error:
+            if error.code not in (429,500,502,503,504) or attempt == 2:
+                raise
+        except (URLError, TimeoutError):
+            if attempt == 2:
+                raise
+        time.sleep(2 ** (attempt+1))
 
 
 def parse_factsheet(html, url):
@@ -55,13 +66,16 @@ def parse_factsheet(html, url):
         overview = props['instrumentInfoOverview']
         facts = overview['keyFacts']
         timestamp = datetime.fromisoformat(detail['exchange']['current_timestamp'])
-        price = detail['buy']
-        if timestamp.tzinfo is None or number(price['value']) <= 0 or price['currency'] not in ('GBP', 'GBX'):
-            raise ValueError('Missing usable price/timestamp')
+        price = detail.get('buy') or {}
+        if timestamp.tzinfo is None:
+            raise ValueError('Missing usable quote timestamp')
         result = dict(isin=detail['isin'], ticker=detail['epicCode'], company=detail['title'],
-                      share_class=detail['description'], sector=facts['sector'], hl_url=url,
+                      share_class=detail.get('description') or 'Unverified share class', sector=facts.get('sector') or 'Unclassified', hl_url=url,
                       security_type='unknown',
-                      price=dict(value=str(price['value']),currency=price['currency'],
+                      industry=facts.get('industry') or '', business_summary=overview.get('businessSummary') or '',
+                      hl_account_products=detail.get('applicableProducts',[]),
+                      internet_tradable=detail.get('internetTradable'),
+                      price=dict(value=str(price['value']) if price.get('value') is not None else None,currency=price.get('currency'),
                                  date=timestamp.date().isoformat(),source=url,
                                  timestamp=timestamp.isoformat(),basis='Delayed indicative buy price'), metrics={})
         # "share" is not evidence of an operating company or absence of PFIC risk.
@@ -69,6 +83,10 @@ def parse_factsheet(html, url):
             result['security_type'] = 'investment_trust'
         if detail.get('links', {}).get('etf_details'):
             result['security_type'] = 'etf'
+        if result['security_type'] == 'unknown' and ('real estate' in (facts.get('industry') or '').lower() or 'reit' in (detail.get('title') or '').lower()):
+            result['security_type'] = 'reit'
+        if result['security_type'] == 'unknown' and any(w in (detail.get('title') or '').lower() for w in ('investment trust', 'income trust', 'capital gearing', 'cash shell')):
+            result['security_type'] = 'investment_trust'
         pe = overview.get('keyMetrics', {}).get('pERatio')
         if pe is not None:
             result['metrics']['pe'] = dict(value=str(number(pe)),date=timestamp.date().isoformat(),source=url,
@@ -106,16 +124,41 @@ def discover(get=fetch, pause=time.sleep):
     return sorted(links)
 
 
-def refresh(data, get=fetch, pause=time.sleep, discover_universe=False):
+def refresh(data, get=fetch, pause=time.sleep, discover_universe=False, full_metrics=False):
     result = copy.deepcopy(data)
     if data.get('illustrative'):
         raise ValueError('Use a real configuration, not the illustrative snapshot, for HL refresh')
-    today = datetime.now(timezone.utc).date().isoformat()
+    observed = datetime.now(timezone.utc).date()
+    today = observed.isoformat()
+    from .fundamentals import derive_financials, financial_url
+    from .performance import fetch_performance
+    from .policy import populate_policy
+    from .evidence import apply_reviews
+    performance = fetch_performance(get,pause,observed) if full_metrics else {}
+    if full_metrics:
+        from .execution import parse_terms, next_cutoff, fetch_holidays, TERMS_URL
+        result['hl_monthly_terms'] = parse_terms(get(TERMS_URL),observed)
+        result['hl_cutoff'] = next_cutoff(observed,result['hl_monthly_terms'],fetch_holidays())
+    failures = []
     stocks = {s['isin']:s for s in result['stocks']}
     urls = discover(get, pause) if discover_universe else [s['hl_url'] for s in result['stocks']]
     member_isins = set()
-    for url in urls:
-        parsed = parse_factsheet(get(url), url)
+    for index, url in enumerate(urls, 1):
+        html = get(url)
+        parsed = parse_factsheet(html, url)
+        if full_metrics:
+            parsed['metrics'].update(performance.get(parsed['ticker'],{}))
+            if parsed['security_type'] not in ('investment_trust','etf'):
+                financial = financial_url(html)
+                try:
+                    if not financial:
+                        raise ValueError('No public financial statements link')
+                    parsed['metrics'].update(derive_financials(get(financial),financial,observed,parsed['isin']))
+                    pause(1)
+                except (ValueError, OSError, ArithmeticError, KeyError, TypeError) as error:
+                    failures.append(dict(ticker=parsed['ticker'],source=financial or url,error=str(error)))
+            if index % 25 == 0:
+                print(f'Fetched {index}/{len(urls)} FTSE factsheets; {len(failures)} financial-data gaps',flush=True)
         isin = parsed['isin']
         member_isins.add(isin)
         old = stocks.get(isin, {})
@@ -127,9 +170,10 @@ def refresh(data, get=fetch, pause=time.sleep, discover_universe=False):
         # Supplied review decisions and holding/execution context survive price refresh.
         old.update({k:v for k,v in parsed.items() if k not in ('security_type','metrics')})
         old.setdefault('security_type', parsed['security_type'])
-        if parsed['security_type'] in ('investment_trust','etf'):
+        if parsed['security_type'] in ('investment_trust','etf','reit'):
             old['security_type'] = parsed['security_type']
         old.setdefault('metrics', {}).update(parsed['metrics'])
+        old['data_warnings'] = [f['error'] for f in failures if f['ticker'] == parsed['ticker']]
         if discover_universe:
             old['membership'] = dict(ftse350=True, date=today, source=BASE)
         stocks[isin] = old
@@ -139,19 +183,44 @@ def refresh(data, get=fetch, pause=time.sleep, discover_universe=False):
             if isin not in member_isins:
                 stock['membership'] = dict(ftse350=False, date=today, source=BASE)
     result['stocks'] = list(stocks.values())
-    result['refresh'] = dict(status='HL public fields refreshed; other fields retain original dates',
+    populate_policy(result)
+    apply_reviews(result)
+    from .portfolio import apply_holdings
+    apply_holdings(result)
+    result['refresh'] = dict(status='LIVE HL public fields refreshed; gate reviews retain original review dates',
+                             financial_data_gaps=failures, constituent_count=len(member_isins),
+                             performance_count=len(performance), full_metrics=full_metrics,
                              fetched_at_utc=datetime.now(timezone.utc).isoformat(), universe_refreshed=discover_universe)
     return result
+
+
+
+def cached_fetch(directory):
+    """Cache only within the current UTC date; published metric dates remain unchanged."""
+    root = directory / datetime.now(timezone.utc).date().isoformat()
+    root.mkdir(parents=True, exist_ok=True)
+
+    def get(url):
+        path = root / (hashlib.sha256(url.encode()).hexdigest()+'.html')
+        if path.exists():
+            return path.read_text(encoding='utf-8')
+        html = fetch(url)
+        path.write_text(html,encoding='utf-8')
+        return html
+    return get
 
 
 def main():
     parser = argparse.ArgumentParser(description='Refresh public HL prices/available fundamentals without login')
     parser.add_argument('input', type=Path)
     parser.add_argument('output', type=Path)
+    parser.add_argument('--full-metrics', action='store_true', help='include public financial history, forecasts and price-return table')
+    parser.add_argument('--cache-dir', type=Path, help='optional same-day public HTML cache')
     parser.add_argument('--discover-universe', action='store_true', help='fetch all FTSE350 factsheets (one request/second)')
     args = parser.parse_args()
     try:
-        result = refresh(json.loads(args.input.read_text(), parse_float=Decimal), discover_universe=args.discover_universe)
+        get = cached_fetch(args.cache_dir) if args.cache_dir else fetch
+        result = refresh(json.loads(args.input.read_text(), parse_float=Decimal), get=get, discover_universe=args.discover_universe, full_metrics=args.full_metrics)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(result, default=str, indent=2)+'\n')
     except (OSError, ValueError, KeyError, TypeError) as error:
