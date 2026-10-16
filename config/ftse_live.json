@@ -83,6 +83,36 @@
       "purchase_tax_rate": "0.005",
       "purchase_tax_basis": "Illustrative 0.5% UK SDRT estimate for this UK-incorporated ordinary share; verify applicability in HL. No personal tax calculation.",
       "identity_source": "https://www.unilever.com/files/demerger-of-tmicc-and-share-consolidation-of-unilever-plc.pdf"
+    },
+    "GB0002875804": {
+      "ticker": "BATS",
+      "security_type": "operating_company",
+      "decision": "PASS",
+      "year": 2025,
+      "date": "2026-10-16",
+      "source": "https://www.sec.gov/Archives/edgar/data/1303523/000130352326000017/bti-20251231.htm",
+      "section": "Form 20-F 2025: Taxation / PFIC",
+      "reviewer": "Codex source review: issuer-statement-v1",
+      "rationale": "Issuer states it does not believe it is a PFIC and expects to operate so as not to become one. The annual determination can change and the report states its US counsel expresses no opinion on PFIC status. Source-based screening review only, not independent clearance.",
+      "recheck_date": "2027-01-14",
+      "policy": "issuer-statement-v1: explicit recent issuer non-PFIC assessment; recheck in 90 days or on corporate event; not a tax opinion",
+      "purchase_tax_rate": "0.005",
+      "purchase_tax_basis": "Illustrative 0.5% UK SDRT estimate for this UK-incorporated ordinary share; verify applicability in HL. No personal tax calculation."
+    },
+    "GB00BDR05C01": {
+      "ticker": "NG.",
+      "security_type": "operating_company",
+      "decision": "PASS",
+      "year": 2026,
+      "date": "2026-10-16",
+      "source": "https://www.nationalgrid.com/document/579676/download",
+      "section": "Annual Report 2025/26, shareholder information, printed page 254",
+      "reviewer": "Codex source review: issuer-statement-v1",
+      "rationale": "Issuer states that its audited statements and business activities support its belief that it was not treated as a PFIC for the taxable year ended 31 March 2026 and does not anticipate that status in the foreseeable future. Future income/asset composition remains subject to annual review.",
+      "recheck_date": "2027-01-14",
+      "policy": "issuer-statement-v1: explicit recent issuer non-PFIC assessment; recheck in 90 days or on corporate event; not a tax opinion",
+      "purchase_tax_rate": "0.005",
+      "purchase_tax_basis": "Illustrative 0.5% UK SDRT estimate for this UK-incorporated ordinary share; verify applicability in HL. No personal tax calculation."
     }
   },
   "holdings": [],

@@ -137,8 +137,14 @@ def refresh(data, get=fetch, pause=time.sleep, discover_universe=False, full_met
     performance = fetch_performance(get,pause,observed) if full_metrics else {}
     if full_metrics:
         from .execution import parse_terms, next_cutoff, fetch_holidays, TERMS_URL
-        result['hl_monthly_terms'] = parse_terms(get(TERMS_URL),observed)
-        result['hl_cutoff'] = next_cutoff(observed,result['hl_monthly_terms'],fetch_holidays())
+        try:
+            result['hl_monthly_terms'] = parse_terms(get(TERMS_URL),observed)
+            result['hl_cutoff'] = next_cutoff(observed,result['hl_monthly_terms'],fetch_holidays())
+            result.pop('execution_error',None)
+        except (ValueError, OSError, KeyError, TypeError) as error:
+            result.pop('hl_monthly_terms',None)
+            result.pop('hl_cutoff',None)
+            result['execution_error'] = str(error)
     failures = []
     stocks = {s['isin']:s for s in result['stocks']}
     urls = discover(get, pause) if discover_universe else [s['hl_url'] for s in result['stocks']]
@@ -191,22 +197,30 @@ def refresh(data, get=fetch, pause=time.sleep, discover_universe=False, full_met
                              financial_data_gaps=failures, constituent_count=len(member_isins),
                              performance_count=len(performance), full_metrics=full_metrics,
                              fetched_at_utc=datetime.now(timezone.utc).isoformat(), universe_refreshed=discover_universe)
+    if hasattr(get,'cache_stats'):
+        result['refresh']['hl_page_cache'] = dict(get.cache_stats)
     return result
 
 
 
-def cached_fetch(directory):
+def cached_fetch(directory, pause=None):
     """Cache only within the current UTC date; published metric dates remain unchanged."""
+    pause = pause or time.sleep
     root = directory / datetime.now(timezone.utc).date().isoformat()
     root.mkdir(parents=True, exist_ok=True)
+    stats = dict(cached_pages=0,downloaded_pages=0,cache_utc_date=root.name)
 
     def get(url):
         path = root / (hashlib.sha256(url.encode()).hexdigest()+'.html')
         if path.exists():
+            stats['cached_pages'] += 1
             return path.read_text(encoding='utf-8')
         html = fetch(url)
+        stats['downloaded_pages'] += 1
+        pause(1)
         path.write_text(html,encoding='utf-8')
         return html
+    get.cache_stats = stats
     return get
 
 
@@ -220,7 +234,7 @@ def main():
     args = parser.parse_args()
     try:
         get = cached_fetch(args.cache_dir) if args.cache_dir else fetch
-        result = refresh(json.loads(args.input.read_text(), parse_float=Decimal), get=get, discover_universe=args.discover_universe, full_metrics=args.full_metrics)
+        result = refresh(json.loads(args.input.read_text(), parse_float=Decimal), get=get, pause=(lambda seconds: None) if args.cache_dir else time.sleep, discover_universe=args.discover_universe, full_metrics=args.full_metrics)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(result, default=str, indent=2)+'\n')
     except (OSError, ValueError, KeyError, TypeError) as error:

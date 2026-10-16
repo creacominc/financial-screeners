@@ -19,9 +19,12 @@ def write_reports(rows, prefix, today, illustrative=False, metadata=None):
     prefix.parent.mkdir(parents=True, exist_ok=True)
     metadata = metadata or {}
     refresh = metadata.get("refresh", {})
-    data_status = ("LIVE HL FETCH: " + refresh["fetched_at_utc"]) if refresh.get("full_metrics") else "SUPPLIED SNAPSHOT; no live refresh performed"
+    data_status = ("REAL HL DATA SNAPSHOT assembled at " + refresh["fetched_at_utc"]) if refresh.get("full_metrics") else "SUPPLIED SNAPSHOT; no live refresh performed"
+    if refresh.get('hl_page_cache'):
+        cache = refresh['hl_page_cache']
+        data_status += f"; {cache['downloaded_pages']} HL pages downloaded, {cache['cached_pages']} reused from {cache['cache_utc_date']} UTC cache; original provider dates retained"
     payload = dict(as_of=today.isoformat(), illustrative=illustrative,
-                   data_status=data_status, refresh=refresh, unresolved_holdings=metadata.get("unresolved_holdings",[]), rows=rows)
+                   data_status=data_status, refresh=refresh, execution_error=metadata.get("execution_error"), unresolved_holdings=metadata.get("unresolved_holdings",[]), rows=rows)
     prefix.with_suffix(".json").write_text(json.dumps(payload, default=json_default, indent=2)+"\n")
     columns = ["company", "ticker", "isin", "share_class", "sector", "security_type", "holding", "holding_value_gbp", "candidate", "universe_reason",
                "gate_status", "gate_reason", "selection_score", "selection_rank", "score_status", "suggested_action", "quality_score", "growth_score", "valuation_score", "trend_score", "pe", "eps_cagr_3y", "revenue_cagr_3y", "price_return_1y", "price_return_3y", "price_return_5y", "price_gbp", "price_date", "total_score", "rank", "prior_rank", "rank_change", "components", "coverage",
@@ -66,6 +69,8 @@ def write_reports(rows, prefix, today, illustrative=False, metadata=None):
             lines.append('- '+cell(f"{row['ticker']} — {account['account']}: {account['eligibility']}; {account['proposed_action']}; minimum estimated contribution for one share: £{account.get('minimum_for_one_share_gbp','unverified')}; {account['dca_status']}; estimated shares {account.get('estimated_shares') if account.get('estimated_shares') is not None else '—'}; residual £{account.get('residual_gbp') if account.get('residual_gbp') is not None else '—'}; instruction cutoff {account['cutoff']}"))
     if not any(r.get('account_estimates') for r in selected):
         lines.append('No verified account scenarios supplied.')
+    if metadata.get('execution_error'):
+        lines += ['', 'HL execution checks unavailable: '+cell(metadata['execution_error'])+'. Stock research remains available; no verified account affordability estimates are supplied.']
     if refresh.get('financial_data_gaps'):
         lines += ['',f"Financial-data gaps: {len(refresh['financial_data_gaps'])}. Affected fields are withheld; details are retained in JSON."]
     if metadata.get('unresolved_holdings'):

@@ -209,7 +209,7 @@ def test_live_report_labels_sources_and_selection_rows(tmp_path):
     rows=analyse(data,TODAY)
     write_reports(rows,tmp_path/'live',TODAY,False,data)
     report=(tmp_path/'live.md').read_text()
-    assert 'LIVE HL FETCH' in report
+    assert 'REAL HL DATA SNAPSHOT' in report
     assert 'Stock-selection shortlist' in report
     assert 'not a claim that unresolved companies are worse' in report
     import csv
@@ -250,3 +250,37 @@ def test_permanent_fetch_failure_is_not_retried(monkeypatch):
     with pytest.raises(HTTPError):
         hl.fetch('https://www.hl.co.uk/shares/test')
     assert len(calls)==1
+
+
+def test_same_day_cache_throttles_network_but_not_cached_reads(tmp_path,monkeypatch):
+    from ftse_screener import hl
+    calls,pauses=[],[]
+    def fetch(url):
+        calls.append(url)
+        return 'public page'
+    monkeypatch.setattr(hl,'fetch',fetch)
+    get=hl.cached_fetch(tmp_path,pause=pauses.append)
+    assert get('https://www.hl.co.uk/shares/test')=='public page'
+    assert get('https://www.hl.co.uk/shares/test')=='public page'
+    assert len(calls)==1
+    assert pauses==[1]
+    assert get.cache_stats['cached_pages']==1
+    assert get.cache_stats['downloaded_pages']==1
+
+
+def test_execution_source_failure_preserves_live_stock_data(monkeypatch):
+    from ftse_screener import hl,execution,performance
+    data=json.loads(Path('config/ftse_live.json').read_text())
+    url='https://www.hl.co.uk/shares/shares-search-results/test'
+    data['stocks']=[dict(isin='TEST',hl_url=url)]
+    props=dict(investmentDetails=dict(isin='TEST',epicCode='TEST',title='Test',description='Ordinary',
+        exchange=dict(current_timestamp='2026-10-16T08:00:00+01:00'),buy=dict(value=100,currency='GBX'),links={}),
+        instrumentInfoOverview=dict(keyFacts=dict(sector='Industrials',industry='Engineering'),keyMetrics={}))
+    monkeypatch.setattr(performance,'fetch_performance',lambda *args:{})
+    def unavailable(*args): raise ValueError('Terms not verified')
+    monkeypatch.setattr(execution,'parse_terms',unavailable)
+    result=hl.refresh(data,get=lambda url:wrapped(props),pause=lambda seconds:None,full_metrics=True)
+    assert len(result['stocks'])==1
+    assert result['stocks'][0]['price']['value']=='100'
+    assert result['execution_error']=='Terms not verified'
+    assert 'hl_cutoff' not in result
