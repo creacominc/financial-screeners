@@ -5,6 +5,7 @@ import json
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
+from urllib.parse import quote, urlparse
 
 from .engine import screen, fresh, number
 
@@ -47,6 +48,15 @@ def write_reports(rows, prefix, today, illustrative=False, metadata=None):
              "Proposals require human review. PASS records a dated review decision, not a permanent PFIC guarantee.", ""]
     def cell(value):
         return str(value if value is not None else '—').replace('|','/').replace('\n',' ').replace('<','&lt;').replace('>','&gt;')
+    def company_link(row):
+        name = cell(row['company'])
+        url = row.get('hl_url', '')
+        parsed = urlparse(url)
+        if parsed.scheme != 'https' or parsed.netloc != 'www.hl.co.uk':
+            return name
+        for character in ('\\', '[', ']'):
+            name = name.replace(character, '\\' + character)
+        return f"[{name}]({quote(url, safe=':/?=&%#')})"
     passed = [r for r in rows if r['gate_status']=='PASS']
     selected = sorted((r for r in rows if r['selection_rank'] is not None),key=lambda r:r['selection_rank'])
     lines += [f"Universe: **{len(rows)}** securities; evidence PASS: **{len(passed)}**; scored selection candidates: **{len(selected)}**; REVIEW: **{sum(r['gate_status']=='REVIEW' for r in rows)}**; EXCLUDE: **{sum(r['gate_status']=='EXCLUDE' for r in rows)}**.", "",
@@ -58,7 +68,7 @@ def write_reports(rows, prefix, today, illustrative=False, metadata=None):
     for row in selected[:25]:
         price=row.get('price',{})
         p=(Decimal(price['value'])/(100 if price.get('currency')=='GBX' else 1)) if price.get('value') and price.get('currency') in ('GBP','GBX') else None
-        values=[row['selection_rank'],row['company'],row['sector'],row['gate_status'],p,row['selection_score']]+[row['components'].get(k) for k in ('quality','growth','valuation','trend')]+[row.get('suggested_action')]
+        values=[row['selection_rank'],company_link(row),row['sector'],row['gate_status'],p,row['selection_score']]+[row['components'].get(k) for k in ('quality','growth','valuation','trend')]+[row.get('suggested_action')]
         lines.append('| '+' | '.join(cell(v.quantize(Decimal('.01')) if isinstance(v,Decimal) else v) for v in values)+' |')
     if not selected:
         lines += ['','No candidate currently meets the membership and data requirements. See the review queue and data gaps below.']

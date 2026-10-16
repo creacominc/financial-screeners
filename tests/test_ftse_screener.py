@@ -307,3 +307,22 @@ def test_review_missing_data_still_withholds_overall_score(data):
     assert row['selection_score'] is None
     assert row['selection_rank'] is None
     assert not row['actionable']
+
+
+@pytest.mark.parametrize('url,linked', [
+    ('https://www.hl.co.uk/shares/shares-search-results/test-company', True),
+    ('', False),
+    ('https://example.com/test-company', False),
+])
+def test_summary_company_links_to_exact_hl_page(data, tmp_path, url, linked):
+    stock = data['stocks'][0]
+    stock['hl_url'] = url
+    stock['company'] = 'Company [Ordinary]'
+    rows = screen(data, TODAY)
+    write_reports(rows, tmp_path/'linked', TODAY)
+    report = (tmp_path/'linked.md').read_text()
+    if linked:
+        assert '[Company \\[Ordinary\\]](' + url + ')' in report
+    else:
+        assert '| Company [Ordinary] |' in report
+        assert '](' + url + ')' not in report

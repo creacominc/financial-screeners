@@ -18,6 +18,8 @@ The adapter follows each factsheet's **actual financial-statements link**. Legac
 
 Annual metrics keep their **period-end dates**. Refreshing a page does not renew old fundamentals. Quotes retain the provider's timestamp; forecast data retains the observation date and forecast year. Missing/null financial fields do not become zero. A financial-page gap is retained with ticker, URL and error; affected metrics and insufficiently covered scores are withheld. A failed universe/price-page fetch fails the run rather than publishing a silently truncated universe. No fixture fallback occurs on a live run.
 
+Company names in the summary ranking link to the exact HL security factsheet for its current chart and price. Ctrl-click (Windows/Linux) or Cmd-click (Mac) opens a new tab; GitHub controls normal-click navigation.
+
 The live report separates:
 
 - **Stock research ranking:** current-universe PASS and REVIEW cases with sufficient financial data; investment components normalized to 100. This can run without a supplied portfolio.
