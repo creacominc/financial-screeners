@@ -1,0 +1,113 @@
+{
+  "illustrative": true,
+  "policy": {
+    "review_year": 2025,
+    "gate_max_days": 365,
+    "membership_max_days": 30,
+    "metric_max_days": 120,
+    "execution_max_days": 30,
+    "price_max_days": 7,
+    "cutoff_buffer_days": 5,
+    "minimum_coverage": "1",
+    "sector_metrics": {
+      "Illustrative sector": {
+        "quality": [
+          {
+            "name": "roic",
+            "weight": "1",
+            "low": "0",
+            "high": "30",
+            "direction": "higher",
+            "positive_only": false
+          }
+        ],
+        "growth": [
+          {
+            "name": "eps_cagr_3y",
+            "weight": "1",
+            "low": "-10",
+            "high": "20",
+            "direction": "higher",
+            "positive_only": false
+          }
+        ],
+        "valuation": [
+          {
+            "name": "pe",
+            "weight": "1",
+            "low": "5",
+            "high": "40",
+            "direction": "lower",
+            "positive_only": true
+          }
+        ],
+        "trend": [
+          {
+            "name": "relative_strength_12m",
+            "weight": "1",
+            "low": "-20",
+            "high": "20",
+            "direction": "higher",
+            "positive_only": false
+          }
+        ]
+      }
+    },
+    "sector_targets": {
+      "Illustrative sector": "0.25"
+    }
+  },
+  "stocks": [
+    {
+      "company": "Illustrative Operating Company",
+      "ticker": "DEMO",
+      "isin": "DEMO00000001",
+      "share_class": "Ordinary",
+      "sector": "Illustrative sector",
+      "security_type": "operating_company",
+      "holding": true,
+      "holding_value_gbp": "1000",
+      "membership": {
+        "ftse350": true,
+        "date": "2026-10-16",
+        "source": "fixture only"
+      },
+      "gate_evidence": {
+        "decision": "REVIEW",
+        "year": 2025,
+        "date": "2026-10-16",
+        "source": "fixture only",
+        "rationale": "No real company evidence supplied"
+      },
+      "metrics": {
+        "roic": {
+          "value": "20",
+          "date": "2026-10-16",
+          "source": "fixture only"
+        },
+        "eps_cagr_3y": {
+          "value": "8",
+          "date": "2026-10-16",
+          "source": "fixture only"
+        },
+        "pe": {
+          "value": "18",
+          "date": "2026-10-16",
+          "source": "fixture only"
+        },
+        "relative_strength_12m": {
+          "value": "5",
+          "date": "2026-10-16",
+          "source": "fixture only"
+        }
+      },
+      "price": {
+        "value": "1234",
+        "currency": "GBX",
+        "date": "2026-10-16",
+        "source": "fixture only"
+      },
+      "execution": {}
+    }
+  ]
+}

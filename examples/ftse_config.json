@@ -1,0 +1,16 @@
+{
+  "illustrative": false,
+  "policy": {
+    "review_year": 2025,
+    "gate_max_days": 365,
+    "membership_max_days": 30,
+    "metric_max_days": 120,
+    "execution_max_days": 30,
+    "price_max_days": 7,
+    "cutoff_buffer_days": 5,
+    "minimum_coverage": "1",
+    "sector_metrics": {},
+    "sector_targets": {}
+  },
+  "stocks": []
+}

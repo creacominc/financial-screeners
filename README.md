@@ -1,6 +1,8 @@
-# UK Gilt Analyser
+# Financial Screeners
 
-A small Python command-line application for comparing **conventional UK gilts held to maturity**. It can fetch current public Hargreaves Lansdown buy prices or use clean buy prices supplied in a CSV.
+Independent Python tools for UK gilts, US Treasuries and [FTSE equities](FTSE_SCREENER.md), with room for a future US equities package. Existing commands and input formats remain supported. GBP and USD analyses stay separate.
+
+The UK gilt tool is a command-line application for comparing **conventional UK gilts held to maturity**. It can fetch current public Hargreaves Lansdown buy prices or use clean buy prices supplied in a CSV.
 
 ## What it calculates
 

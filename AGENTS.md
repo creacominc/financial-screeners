@@ -21,3 +21,14 @@ This project compares conventional UK gilts bought at a supplied clean offer pri
 Every change to a financial formula, schedule, rounding rule, input convention, or report field requires automated tests. At minimum preserve tests for coupon scheduling, coupon-date accrued interest, mid-period accrued interest, dirty price, affordability rounding, fee inclusion, remaining cash flows, redemption gain separation, total profit, annualised yield, report ordering, and invalid inputs.
 
 Run the full suite with `pytest`. A financial calculation change is not complete while any test is failing or while its new behavior lacks a focused test.
+
+## Additional screeners
+
+The repository also contains a separate USD Treasury analyser and an FTSE equity
+screener. Keep each instrument's calculations, currencies and reports separate.
+The conventional-gilt conventions above apply to the gilt package. The FTSE
+policy and input contract are documented in `FTSE_SCREENER.md`; its design is in
+`FTSE350_SCREENER_DESIGN.md`. Equity scoring and affordability must also use
+Decimal and focused automated tests. Public HL equity fetching was explicitly
+requested for personal Direct Debit research; it must never infer PFIC clearance
+or renew human execution/evidence reviews merely by fetching a price.
