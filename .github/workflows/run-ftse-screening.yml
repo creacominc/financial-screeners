@@ -9,7 +9,7 @@ on:
         default: examples/ftse_snapshot.json
         required: true
       fetch_hl:
-        description: Refresh HL public fields and discover FTSE350 universe
+        description: Refresh HL public data (real configurations only; demo stays offline)
         type: boolean
         default: false
   schedule:
@@ -36,13 +36,14 @@ jobs:
         env:
           INPUT_PATH: ${{ inputs.input_json || vars.FTSE_INPUT_JSON }}
           EVENT: ${{ github.event_name }}
+          FETCH_HL: ${{ inputs.fetch_hl }}
         run: |
           python - <<'PY'
           import json, os, shutil
           from datetime import datetime, timezone
           from pathlib import Path
           from zoneinfo import ZoneInfo
-          from ftse_screener.automation import report_reason
+          from ftse_screener.automation import report_reason, refresh_mode
           if not os.environ['INPUT_PATH']:
               raise SystemExit('Set FTSE_INPUT_JSON to a real configuration to enable scheduled reports; no refresh performed')
           root = Path.cwd().resolve()
@@ -50,18 +51,22 @@ jobs:
           if root not in source.parents or not source.is_file():
               raise SystemExit('Input must be a file inside the repository')
           data = json.loads(source.read_text())
+          mode = refresh_mode(data, os.environ['EVENT'], os.environ['FETCH_HL'] == 'true')
+          if mode == 'illustrative' and os.environ['FETCH_HL'] == 'true':
+              print('::warning::Illustrative input selected: HL refresh skipped. Demo reports only; select examples/ftse_config.json with HL refresh for live discovery.')
           now = datetime.now(timezone.utc)
           reason = 'manual' if os.environ['EVENT'] == 'workflow_dispatch' else report_reason(data, now)
           Path('reports').mkdir(exist_ok=True)
           shutil.copyfile(source, 'reports/ftse_input.json')
           with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
               out.write(f"run={'true' if reason else 'false'}\n")
+              out.write(f"refresh={'true' if mode == 'hl' else 'false'}\n")
               out.write(f"date={now.astimezone(ZoneInfo('Europe/London')).date()}\n")
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
-              summary.write(f"FTSE report: {reason or 'not due today'}. Input: {source.name}\n")
+              summary.write(f"FTSE report: {reason or 'not due today'}. Input: {source.name}. Mode: {mode}.\n")
           PY
       - name: Refresh HL public data
-        if: steps.config.outputs.run == 'true' && (inputs.fetch_hl || github.event_name == 'schedule')
+        if: steps.config.outputs.run == 'true' && steps.config.outputs.refresh == 'true'
         run: ftse-fetch-hl reports/ftse_input.json reports/ftse_refreshed.json --discover-universe
       - name: Generate dated reports
         if: steps.config.outputs.run == 'true'

@@ -218,3 +218,57 @@ def test_hl_pagination_parser():
     parser.feed('<a href="?page=2">2</a><a href="/shares/shares-search-results/DEMO">Demo</a><a href="https://other.example/shares/shares-search-results/BAD">bad</a>')
     assert len(parser.links) == 1
     assert parser.pages == {'https://www.hl.co.uk/shares/stock-market-summary/ftse-350?page=2'}
+
+
+@pytest.mark.parametrize('requested', [False, True])
+def test_manual_demo_never_fetches_hl(requested):
+    from ftse_screener.automation import refresh_mode
+    data = json.loads(Path('examples/ftse_snapshot.json').read_text())
+    assert refresh_mode(data, 'workflow_dispatch', requested) == 'illustrative'
+
+
+@pytest.mark.parametrize('requested,expected', [(False, 'supplied'), (True, 'hl')])
+def test_manual_real_configuration_refresh(requested, expected):
+    from ftse_screener.automation import refresh_mode
+    data = json.loads(Path('examples/ftse_config.json').read_text())
+    assert refresh_mode(data, 'workflow_dispatch', requested) == expected
+
+
+def test_scheduled_refresh_requires_real_configuration():
+    from ftse_screener.automation import refresh_mode
+    assert refresh_mode({'illustrative': False}, 'schedule') == 'hl'
+    with pytest.raises(ValueError, match='real configuration'):
+        refresh_mode({'illustrative': True}, 'schedule')
+
+
+def test_actions_demo_with_refresh_checked(tmp_path):
+    """Execute the actual workflow's configuration and reporting commands offline."""
+    import os
+    import subprocess
+    import sys
+    import textwrap
+    workflow = Path('.github/workflows/run-ftse-screening.yml').read_text()
+    script = textwrap.dedent(workflow.split("          python - <<'PY'\n", 1)[1].split('          PY\n', 1)[0])
+    example = tmp_path/'examples'/'ftse_snapshot.json'
+    example.parent.mkdir()
+    example.write_text(Path('examples/ftse_snapshot.json').read_text())
+    output, summary = tmp_path/'outputs', tmp_path/'summary'
+    env = dict(os.environ, INPUT_PATH='examples/ftse_snapshot.json', EVENT='workflow_dispatch', FETCH_HL='true',
+               GITHUB_OUTPUT=str(output), GITHUB_STEP_SUMMARY=str(summary))
+    result = subprocess.run([sys.executable, '-c', script], cwd=tmp_path, env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    values = dict(line.split('=', 1) for line in output.read_text().splitlines())
+    assert values['run'] == 'true'
+    assert values['refresh'] == 'false'
+    assert 'HL refresh skipped' in result.stdout
+    assert 'Mode: illustrative' in summary.read_text()
+    report_script = textwrap.dedent(workflow.split('          input=reports/ftse_input.json\n', 1)[1].split('      - name: Flag failure', 1)[0])
+    report_script = 'input=reports/ftse_input.json\n' + report_script
+    env.update(AS_OF=values['date'], GITHUB_STEP_SUMMARY=str(summary))
+    env['PATH'] = str(Path(sys.executable).parent) + os.pathsep + env.get('PATH', '')
+    result = subprocess.run(['bash', '-e', '-c', report_script], cwd=tmp_path, env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert 'ILLUSTRATIVE FIXTURE' in summary.read_text()
+    reports = list((tmp_path/'reports').glob('ftse-*.json'))
+    assert len(reports) == 1
+    assert not any(row['actionable'] for row in json.loads(reports[0].read_text())['rows'])

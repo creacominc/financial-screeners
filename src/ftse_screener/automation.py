@@ -19,3 +19,12 @@ def report_reason(data, now):
         if local.date() == due.date():
             return 'monthly cutoff review'
     return None
+
+
+def refresh_mode(data, event, requested=False):
+    """Keep demo runs offline even if the manual refresh box is checked."""
+    if data.get('illustrative', False):
+        if event == 'schedule':
+            raise ValueError('Scheduled reports require a real configuration, not illustrative data')
+        return 'illustrative'
+    return 'hl' if requested or event == 'schedule' else 'supplied'
