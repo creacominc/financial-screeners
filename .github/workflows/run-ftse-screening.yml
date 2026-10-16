@@ -80,12 +80,14 @@ jobs:
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
               summary.write(f"FTSE report: {reason or 'not due today'}. Input: {source.name}. Mode: {mode}.\n")
           PY
-      - name: Cache today's public HL pages
+      - name: Cache public HL pages by freshness policy
         if: steps.config.outputs.run == 'true' && steps.config.outputs.refresh == 'true'
         uses: actions/cache@v5
         with:
           path: reports/hl-cache
-          key: ftse-hl-v1-${{ runner.os }}-${{ steps.config.outputs.date }}
+          key: ftse-hl-v2-${{ runner.os }}-${{ steps.config.outputs.date }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            ftse-hl-v2-${{ runner.os }}-
       - name: Refresh HL public data
         if: steps.config.outputs.run == 'true' && steps.config.outputs.refresh == 'true'
         run: ftse-fetch-hl reports/ftse_input.json reports/ftse_refreshed.json --discover-universe --full-metrics --cache-dir reports/hl-cache

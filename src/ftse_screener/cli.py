@@ -22,7 +22,7 @@ def write_reports(rows, prefix, today, illustrative=False, metadata=None):
     data_status = ("REAL HL DATA SNAPSHOT assembled at " + refresh["fetched_at_utc"]) if refresh.get("full_metrics") else "SUPPLIED SNAPSHOT; no live refresh performed"
     if refresh.get('hl_page_cache'):
         cache = refresh['hl_page_cache']
-        data_status += f"; {cache['downloaded_pages']} HL pages downloaded, {cache['cached_pages']} reused from {cache['cache_utc_date']} UTC cache; original provider dates retained"
+        data_status += f"; {cache['downloaded_pages']} HL pages downloaded, {cache['cached_pages']} reused from cache (market pages: {cache['cache_utc_date']} UTC; financial pages: up to 7 days old); original provider and forecast observation dates retained"
     payload = dict(as_of=today.isoformat(), illustrative=illustrative,
                    data_status=data_status, refresh=refresh, execution_error=metadata.get("execution_error"), unresolved_holdings=metadata.get("unresolved_holdings",[]), rows=rows)
     prefix.with_suffix(".json").write_text(json.dumps(payload, default=json_default, indent=2)+"\n")

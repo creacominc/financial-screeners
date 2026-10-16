@@ -284,3 +284,62 @@ def test_execution_source_failure_preserves_live_stock_data(monkeypatch):
     assert result['stocks'][0]['price']['value']=='100'
     assert result['execution_error']=='Terms not verified'
     assert 'hl_cutoff' not in result
+
+
+def test_financial_cache_survives_rollover_and_expires(tmp_path, monkeypatch):
+    from datetime import datetime, timezone, timedelta
+    from ftse_screener import hl
+    start = datetime(2026, 10, 16, 12, tzinfo=timezone.utc)
+    financial = 'https://www.hl.co.uk/shares/test/financial-statements-and-reports'
+    market = 'https://www.hl.co.uk/shares/test'
+    calls = []
+    monkeypatch.setattr(hl, 'fetch', lambda url: calls.append(url) or 'page')
+    for elapsed in (0, 1, 6, 7):
+        get = hl.cached_fetch(tmp_path, pause=lambda _: None, now=start+timedelta(days=elapsed))
+        get(financial)
+        get(market)
+        expected = start.date() if elapsed < 7 else (start+timedelta(days=7)).date()
+        assert get.observation_dates[financial] == expected
+        assert get.cache_stats['financial_cached_pages'] == (1 if elapsed in (1, 6) else 0)
+    assert calls.count(financial) == 2
+    assert calls.count(market) == 4
+    assert not (tmp_path / start.date().isoformat()).exists()
+
+
+def test_financial_cache_invalid_timestamp_requires_download(tmp_path, monkeypatch):
+    from datetime import datetime, timezone
+    from ftse_screener import hl
+    url = 'https://www.hl.co.uk/shares/test/financial-statements-and-reports'
+    now = datetime(2026, 10, 16, tzinfo=timezone.utc)
+    calls = []
+    monkeypatch.setattr(hl, 'fetch', lambda url: calls.append(url) or 'page')
+    hl.cached_fetch(tmp_path, pause=lambda _: None, now=now)(url)
+    next((tmp_path / 'financials').glob('*.json')).write_text('{"fetched_at_utc":"invalid"}')
+    hl.cached_fetch(tmp_path, pause=lambda _: None, now=now)(url)
+    assert len(calls) == 2
+
+
+def test_refresh_preserves_cached_forecast_observation_date(monkeypatch):
+    from datetime import date
+    from ftse_screener import hl, fundamentals, performance, execution
+    url = 'https://www.hl.co.uk/shares/test'
+    financial = url + '/financial-statements-and-reports'
+    original = date(2026, 10, 12)
+    def get(url): return 'page'
+    get.observation_dates = {financial: original}
+    monkeypatch.setattr(hl, 'parse_factsheet', lambda *args: dict(
+        isin='TEST', ticker='TEST', sector='Industrials', share_class='Ordinary',
+        security_type='operating_company', metrics={}))
+    monkeypatch.setattr(performance, 'fetch_performance', lambda *args: {})
+    monkeypatch.setattr(fundamentals, 'financial_url', lambda *args: financial)
+    seen = []
+    def derive(html, source, observed, isin):
+        seen.append(observed)
+        return {'forecast_eps_growth_pct': dict(value='10', date=observed.isoformat(), source=source)}
+    monkeypatch.setattr(fundamentals, 'derive_financials', derive)
+    def unavailable(*args): raise ValueError('Terms unavailable')
+    monkeypatch.setattr(execution, 'parse_terms', unavailable)
+    result = hl.refresh(dict(policy={}, stocks=[dict(isin='TEST', hl_url=url)]), get=get,
+                        pause=lambda _: None, full_metrics=True)
+    assert seen == [original]
+    assert result['stocks'][0]['metrics']['forecast_eps_growth_pct']['date'] == '2026-10-12'

@@ -159,7 +159,9 @@ def refresh(data, get=fetch, pause=time.sleep, discover_universe=False, full_met
                 try:
                     if not financial:
                         raise ValueError('No public financial statements link')
-                    parsed['metrics'].update(derive_financials(get(financial),financial,observed,parsed['isin']))
+                    financial_html = get(financial)
+                    financial_observed = getattr(get, 'observation_dates', {}).get(financial, observed)
+                    parsed['metrics'].update(derive_financials(financial_html,financial,financial_observed,parsed['isin']))
                     pause(1)
                 except (ValueError, OSError, ArithmeticError, KeyError, TypeError) as error:
                     failures.append(dict(ticker=parsed['ticker'],source=financial or url,error=str(error)))
@@ -203,24 +205,58 @@ def refresh(data, get=fetch, pause=time.sleep, discover_universe=False, full_met
 
 
 
-def cached_fetch(directory, pause=None):
-    """Cache only within the current UTC date; published metric dates remain unchanged."""
+def cached_fetch(directory, pause=None, now=None):
+    """Daily market pages; financial pages last seven days with original observation dates."""
     pause = pause or time.sleep
-    root = directory / datetime.now(timezone.utc).date().isoformat()
+    now = now or datetime.now(timezone.utc)
+    root = directory / now.date().isoformat()
     root.mkdir(parents=True, exist_ok=True)
-    stats = dict(cached_pages=0,downloaded_pages=0,cache_utc_date=root.name)
+    financial_root = directory / 'financials'
+    financial_root.mkdir(exist_ok=True)
+    # Keep daily pages only for today; the separate financial cache survives rollover.
+    import shutil
+    for child in directory.iterdir():
+        if child.is_dir() and child.name != 'financials' and child.name != root.name:
+            try:
+                old_date = date.fromisoformat(child.name)
+            except ValueError:
+                continue
+            if old_date < now.date():
+                shutil.rmtree(child)
+    stats = dict(cached_pages=0,downloaded_pages=0,cache_utc_date=root.name,
+                 financial_cache_days=7,financial_cached_pages=0)
+    observations = {}
 
     def get(url):
-        path = root / (hashlib.sha256(url.encode()).hexdigest()+'.html')
-        if path.exists():
+        financial = urlparse(url).path.rstrip('/').endswith('/financial-statements-and-reports')
+        digest = hashlib.sha256(url.encode()).hexdigest()
+        path = (financial_root if financial else root) / (digest+'.html')
+        stamp = path.with_suffix('.json')
+        fetched = None
+        if financial and stamp.exists():
+            try:
+                fetched = datetime.fromisoformat(json.loads(stamp.read_text())['fetched_at_utc'])
+                valid = 0 <= (now-fetched).total_seconds() < 7*24*60*60
+            except (ValueError, KeyError, TypeError):
+                valid = False
+        else:
+            valid = not financial
+        if path.exists() and valid:
             stats['cached_pages'] += 1
+            if financial:
+                stats['financial_cached_pages'] += 1
+            observations[url] = fetched.date() if financial else now.date()
             return path.read_text(encoding='utf-8')
         html = fetch(url)
         stats['downloaded_pages'] += 1
         pause(1)
         path.write_text(html,encoding='utf-8')
+        if financial:
+            stamp.write_text(json.dumps(dict(fetched_at_utc=now.isoformat())))
+        observations[url] = now.date()
         return html
     get.cache_stats = stats
+    get.observation_dates = observations
     return get
 
 
@@ -229,7 +265,7 @@ def main():
     parser.add_argument('input', type=Path)
     parser.add_argument('output', type=Path)
     parser.add_argument('--full-metrics', action='store_true', help='include public financial history, forecasts and price-return table')
-    parser.add_argument('--cache-dir', type=Path, help='optional same-day public HTML cache')
+    parser.add_argument('--cache-dir', type=Path, help='optional daily market / seven-day financial HTML cache')
     parser.add_argument('--discover-universe', action='store_true', help='fetch all FTSE350 factsheets (one request/second)')
     args = parser.parse_args()
     try:
