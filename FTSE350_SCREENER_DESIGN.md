@@ -1,3 +1,5 @@
+> Policy update, 16 October 2026: at the user’s request, research rankings now include both PASS and unresolved REVIEW cases with sufficient financial data. Gate status and reasons remain visible for spreadsheet filtering; REVIEW is never silently promoted to PASS or marked actionable. EXCLUDE cases remain unscored. This supersedes the PASS-only scoring/ranking requirements below; other requirements continue to apply.
+
 # FTSE 350 Stock Screener — Design Handoff
 
 Design captured: 16 October 2026\

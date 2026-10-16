@@ -149,7 +149,7 @@ def screen(data, today):
                    universe_reason="Current supplied FTSE350 membership" if candidate else "Outside/unverified/stale FTSE350 membership; purchase ranking withheld",
                    actionable=False)
         row.update(affordability(stock, policy, today))
-        if status == "PASS":
+        if status != "EXCLUDE":
             sector_policy = policy["sector_metrics"].get(stock["sector"])
             if sector_policy:
                 for name in ("quality", "growth", "valuation", "trend"):
@@ -174,15 +174,17 @@ def screen(data, today):
                     row["score_status"] = "COMPLETE: includes portfolio diversification"
             if row["total_score"] is None:
                 row["drivers"].append("Portfolio total withheld: missing portfolio context; investment selection score available" if row["selection_score"] is not None else "Score withheld: missing sector policy, portfolio context or minimum coverage")
+        if status == "REVIEW":
+            row["score_status"] += "; RESEARCH ONLY: unresolved security/PFIC evidence"
         rows.append(row)
     ranked = sorted((r for r in rows if r["candidate"] and r["total_score"] is not None), key=lambda r: (-r["total_score"], r["isin"]))
     for rank, row in enumerate(ranked, 1):
         row["rank"] = rank
         if row.get("prior_rank") is not None:
             row["rank_change"] = int(row["prior_rank"]) - rank
-        row["actionable"] = row["dca_status"] == "ESTIMATE" and not data.get("illustrative", False)
+        row["actionable"] = row["gate_status"] == "PASS" and row["dca_status"] == "ESTIMATE" and not data.get("illustrative", False)
     selection = sorted((r for r in rows if r["candidate"] and r["selection_score"] is not None), key=lambda r: (-r["selection_score"], r["isin"]))
     for rank, row in enumerate(selection, 1):
         row["selection_rank"] = rank
-        row["suggested_action"] = ("Consider increasing monthly purchase" if row.get("holding") else ("Consider adding to monthly purchases" if row.get("holding") is False or data.get("holdings_complete") else "Check ownership, then consider adding or increasing monthly purchase"))
+        row["suggested_action"] = ("Resolve gate review before considering purchase" if row["gate_status"] == "REVIEW" else "Consider increasing monthly purchase" if row.get("holding") else ("Consider adding to monthly purchases" if row.get("holding") is False or data.get("holdings_complete") else "Check ownership, then consider adding or increasing monthly purchase"))
     return rows

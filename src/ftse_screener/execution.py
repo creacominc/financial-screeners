@@ -78,6 +78,8 @@ def account_scenarios(stock, data, today, terms, cutoff):
                       eligibility_sources=[stock['hl_url'],terms['source']],checked_date=terms['date'],cutoff=cutoff)
         positions=[p for p in stock.get('positions',[]) if p['account']==account]
         estimate['proposed_action']='Consider increasing monthly purchase' if positions else ('Consider adding monthly purchase' if data.get('holdings_complete') else 'Confirm ownership; consider adding or increasing monthly purchase')
+        if stock.get('gate_status') == 'REVIEW':
+            estimate['proposed_action']='Resolve gate review before considering purchase'
         contribution=data.get('monthly_per_share_gbp')
         review=data.get('security_reviews',{}).get(stock['isin'],{})
         tax=review.get('purchase_tax_rate')

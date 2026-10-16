@@ -134,8 +134,9 @@ def test_selection_rank_without_fabricating_portfolio_score():
     assert not row['actionable']
     s['gate_evidence']['decision']='REVIEW'
     row=screen(data,TODAY)[0]
-    assert row['selection_score'] is None
-    assert row['selection_rank'] is None
+    assert row['selection_score'] is not None
+    assert row['selection_rank'] == 1
+    assert not row['actionable']
 
 
 def test_baseline_bank_substitutions():
@@ -210,8 +211,8 @@ def test_live_report_labels_sources_and_selection_rows(tmp_path):
     write_reports(rows,tmp_path/'live',TODAY,False,data)
     report=(tmp_path/'live.md').read_text()
     assert 'REAL HL DATA SNAPSHOT' in report
-    assert 'Stock-selection shortlist' in report
-    assert 'not a claim that unresolved companies are worse' in report
+    assert 'Stock research ranking' in report
+    assert 'ranking includes PASS and REVIEW' in report
     import csv
     with (tmp_path/'live.csv').open() as handle:
         row=next(csv.DictReader(handle))

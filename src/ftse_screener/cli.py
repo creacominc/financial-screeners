@@ -51,17 +51,17 @@ def write_reports(rows, prefix, today, illustrative=False, metadata=None):
     selected = sorted((r for r in rows if r['selection_rank'] is not None),key=lambda r:r['selection_rank'])
     lines += [f"Universe: **{len(rows)}** securities; evidence PASS: **{len(passed)}**; scored selection candidates: **{len(selected)}**; REVIEW: **{sum(r['gate_status']=='REVIEW' for r in rows)}**; EXCLUDE: **{sum(r['gate_status']=='EXCLUDE' for r in rows)}**.", "",
               "Selection ranking uses Quality 30, Growth 25, Valuation 20 and Price/Trend 15, normalized to 100. The 10% portfolio diversification component is assessed separately when holdings and targets are supplied. Missing portfolio data never becomes a favourable diversification score.", "",
-              "**Coverage limitation:** this is a ranking of candidates with sufficient documented gate evidence and data, not a claim that unresolved companies are worse investments. REVIEW and EXCLUDE cases have no investment scores.", "",
-              "## Stock-selection shortlist (PASS evidence only)", "",
-              "| Selection rank | Company | Indicative GBP buy | Selection /100 | Quality | Growth | Valuation | Trend | Next action |",
-              "|---:|---|---:|---:|---:|---:|---:|---:|---|"]
+              "Research ranking includes PASS and REVIEW cases with sufficient data. Filter gate_status in the CSV to restrict the universe. REVIEW scores do not establish security/PFIC clearance; EXCLUDE cases remain unscored. Missing data or unsuitable sector policies can still prevent ranking.", "",
+              "## Stock research ranking (PASS and REVIEW)", "",
+              "| Selection rank | Company | Sector | Gate status | Indicative GBP buy | Selection /100 | Quality | Growth | Valuation | Trend | Next action |",
+              "|---:|---|---|---|---:|---:|---:|---:|---:|---:|---|"]
     for row in selected[:25]:
         price=row.get('price',{})
         p=(Decimal(price['value'])/(100 if price.get('currency')=='GBX' else 1)) if price.get('value') and price.get('currency') in ('GBP','GBX') else None
-        values=[row['selection_rank'],row['company'],p,row['selection_score']]+[row['components'].get(k) for k in ('quality','growth','valuation','trend')]+[row.get('suggested_action')]
+        values=[row['selection_rank'],row['company'],row['sector'],row['gate_status'],p,row['selection_score']]+[row['components'].get(k) for k in ('quality','growth','valuation','trend')]+[row.get('suggested_action')]
         lines.append('| '+' | '.join(cell(v.quantize(Decimal('.01')) if isinstance(v,Decimal) else v) for v in values)+' |')
     if not selected:
-        lines += ['','No candidate currently meets the evidence and data requirements. See the review queue and data gaps below.']
+        lines += ['','No candidate currently meets the membership and data requirements. See the review queue and data gaps below.']
     lines += ['', '## Account checks and optional affordability scenarios', '',
               'Account indications combine the exact factsheet’s account products with current public HL monthly-investing terms. Verify the share class in HL Monthly Savings before submission. A per-share scenario is not a proposed total portfolio budget.', '']
     for row in selected[:25]:
@@ -78,7 +78,7 @@ def write_reports(rows, prefix, today, illustrative=False, metadata=None):
         for position in metadata['unresolved_holdings']:
             lines.append('- '+cell(f"{position['isin']} — {position['account']}: REVIEW; {position['reason']}"))
     lines.append('')
-    groups = [("Portfolio-adjusted PASS candidates (requires holdings and targets)", lambda r: r["rank"] is not None),
+    groups = [("Portfolio-adjusted research ranking (PASS and REVIEW; requires holdings and targets)", lambda r: r["rank"] is not None),
               ("Existing holdings comparison", lambda r: r.get("holding")),
               ("PASS evidence and scoring details", lambda r: r["gate_status"] == "PASS"),
               ("REVIEW queue", lambda r: r["gate_status"] == "REVIEW"),

@@ -50,8 +50,11 @@ def test_unresolved_gate(data, change):
     data['stocks'][0]['gate_evidence'].update(change)
     row = screen(data, TODAY)[0]
     assert row['gate_status'] == 'REVIEW'
-    assert row['rank'] is None
-    assert row['total_score'] is None
+    assert row['rank'] == 1
+    assert row['total_score'] is not None
+    assert row['selection_rank'] == 1
+    assert not row['actionable']
+    assert 'Resolve gate review' in row['suggested_action']
 
 
 def test_property_review(data):
@@ -272,3 +275,35 @@ def test_actions_demo_with_refresh_checked(tmp_path):
     reports = list((tmp_path/'reports').glob('ftse-*.json'))
     assert len(reports) == 1
     assert not any(row['actionable'] for row in json.loads(reports[0].read_text())['rows'])
+
+
+@pytest.mark.parametrize('kind', ['unknown', 'reit', 'operating_company'])
+def test_review_research_rank_keeps_gate_and_sector_visible(data, tmp_path, kind):
+    reviewed = copy.deepcopy(data['stocks'][0])
+    reviewed.update(isin='DEMO00000002', security_type=kind, sector='Research sector')
+    reviewed['gate_evidence']['decision'] = 'REVIEW'
+    data['policy']['sector_metrics']['Research sector'] = copy.deepcopy(
+        data['policy']['sector_metrics'][data['stocks'][0]['sector']])
+    data['stocks'].append(reviewed)
+    rows = screen(data, TODAY)
+    assert rows[1]['selection_score'] == rows[0]['selection_score']
+    assert rows[1]['selection_rank'] == 2
+    assert rows[1]['gate_status'] == 'REVIEW'
+    assert not rows[1]['actionable']
+    write_reports(rows, tmp_path/'research', TODAY)
+    import csv
+    exported = list(csv.DictReader((tmp_path/'research.csv').open()))
+    assert exported[1]['gate_status'] == 'REVIEW'
+    assert exported[1]['sector'] == 'Research sector'
+    assert exported[1]['selection_rank'] == '2'
+    report = (tmp_path/'research.md').read_text()
+    assert '| Research sector | REVIEW |' in report
+
+
+def test_review_missing_data_still_withholds_overall_score(data):
+    data['stocks'][0]['gate_evidence']['decision'] = 'REVIEW'
+    data['stocks'][0]['metrics'] = {}
+    row = screen(data, TODAY)[0]
+    assert row['selection_score'] is None
+    assert row['selection_rank'] is None
+    assert not row['actionable']

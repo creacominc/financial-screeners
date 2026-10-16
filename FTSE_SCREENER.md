@@ -20,20 +20,22 @@ Annual metrics keep their **period-end dates**. Refreshing a page does not renew
 
 The live report separates:
 
-- **Stock-selection shortlist:** only current-universe PASS cases with sufficient financial data; investment components normalized to 100. This can run without a supplied portfolio.
+- **Stock research ranking:** current-universe PASS and REVIEW cases with sufficient financial data; investment components normalized to 100. This can run without a supplied portfolio.
 - **Portfolio-adjusted ranking:** includes the 10% diversification component only when holdings and sector targets are available. Missing portfolio information never earns diversification points.
 - **Account checks:** separate public eligibility indications and optional affordability scenarios for ISA and Fund and Share Account.
-- **PASS detail, holdings comparisons, REVIEW queue and EXCLUDE audit:** evidence and underlying metrics remain visible. Excluded and unresolved securities receive no investment scores.
+- **PASS detail, holdings comparisons, REVIEW queue and EXCLUDE audit:** evidence and underlying metrics remain visible. REVIEW cases receive research scores and retain their gate reasons; EXCLUDE cases receive no investment scores.
 
 The first full validation on 16 October 2026 processed **351 securities** and found **three financial-statement gaps**. Counts are recalculated each run; these are validation results, not hardcoded expected outcomes.
 
 ## Evidence gate and the current coverage limit
 
-The design's security/PFIC gate remains mandatory **before scoring**. Investment trusts, ETFs/funds, VCTs, closed-end funds, SPACs and cash shells are prohibited. Property/REIT structures and unknown classifications remain REVIEW unless explicitly resolved. A company name, ticker, sector or HL membership never clears the gate.
+The security/PFIC gate is assessed before scoring, but unresolved REVIEW cases are included in research rankings as requested on 16 October 2026. Their status is not promoted to PASS, and they are not marked actionable. Investment trusts, ETFs/funds, VCTs, closed-end funds, SPACs and cash shells are prohibited. Property/REIT structures and unknown classifications remain REVIEW unless explicitly resolved. A company name, ticker, sector or HL membership never clears the gate.
 
 `config/ftse_live.json` includes six dated, identified **source reviews** under `issuer-statement-v1`: AstraZeneca, Unilever, Diageo, HSBC, British American Tobacco and National Grid. Each has a primary annual-report source, applicable year, rationale, reviewer, review date and recheck date. These are Codex source reviews of explicit issuer assessments, not an invented human signoff or independent tax opinion. Unilever uses its current post-consolidation ISIN, supported by the issuer's corporate-action documentation. HSBC's review uses its issuer-specific statement; banks are not automatically excluded or cleared because of interest income or financial assets.
 
-**This is presently a ranking of the documented eligible subset, not a claim to have found the best six businesses in the entire FTSE350.** Other operating companies, including unresolved names in the original design shortlist, remain visible in REVIEW. Their lack of a score does not mean they are inferior investments. Broader buy rankings require company/year-specific reviews to be added to `security_reviews`; no rule silently promotes missing evidence to PASS. The full universe's raw data is still available for research.
+**Research coverage is independent of evidence clearance.** PASS and REVIEW securities share the same scoring rules and ranking, allowing CSV filters by `gate_status`, sector and score. Unresolved structures (including REIT/property cases) can receive research scores where the configured sector metrics have sufficient coverage; those metrics do not resolve structure-specific accounting limitations. Missing or stale metrics still withhold incomplete overall scores. Known EXCLUDE cases remain unranked. Suggested actions on REVIEW rows require resolving the gate review before considering purchase; account eligibility and affordability are separate checks.
+
+Reprocessing the saved 16 October 2026 live snapshot under this policy ranked **194 securities across 11 HL sectors**: six PASS and 188 REVIEW. These counts describe that snapshot and will change with data availability. This is a wider research comparison, not evidence that the 188 unresolved cases have passed review.
 
 The source reviews were checked on 16 October 2026 and expire on 14 January 2027, or sooner if an identity/classification change triggers review. Price refresh does not renew them. Sources assess a completed tax/reporting year; PASS is not a promise about the current year, past holder-specific PFIC history or future status. The configured policy permits 2025/2026 source years and requires a recent review. Conflicts, expiry, missing sources and future review dates prevent PASS.
 
