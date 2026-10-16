@@ -7,7 +7,7 @@ from pathlib import Path
 from gilt_analyser.cli import decimal_argument
 
 from .calculator import UnaffordableTreasury, analyse_treasury
-from .reporting import read_treasuries, write_reports
+from .reporting import read_treasuries, write_reports, ranked_rows
 from .wsj_fetcher import fetch_treasuries, write_input_csv
 
 
@@ -48,6 +48,10 @@ def main() -> None:
                 excluded.append(dict(cusip=security.cusip, security_id=security.security_id, name=security.name,
                                      minimum_nominal=security.minimum_nominal, reason=str(error)))
         paths = write_reports(analyses, args.output)
+        from gilt_analyser.summary import write_summary
+        write_summary(ranked_rows(analyses), args.output, treasury=True,
+                      source=str(args.input_csv) if args.input_csv else 'Current indicative WSJ quotes (assumed calculation lots)',
+                      excluded=excluded, settlement=args.settlement_date, budget=args.investment, fee=args.fee)
         if args.skip_unaffordable:
             excluded_path = args.output.with_suffix("").with_name(args.output.with_suffix("").name + "_excluded.csv")
             with excluded_path.open("w", newline="", encoding="utf-8") as handle:
@@ -57,7 +61,7 @@ def main() -> None:
             print(f"Analysed {len(analyses)} offers; excluded {len(excluded)} unaffordable offers. Wrote {excluded_path}")
     except (ValueError, OSError) as error:
         parser.error(str(error))
-    print(f"Wrote {paths[0]} and {paths[1]}")
+    print(f"Wrote {paths[0]}, {paths[1]} and {args.output.with_suffix('.md')}")
 
 
 if __name__ == "__main__":

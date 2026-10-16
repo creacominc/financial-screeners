@@ -86,6 +86,11 @@ jobs:
               --investment "$INVESTMENT" --fee "$FEE" \
               --settlement-date "$SETTLEMENT_DATE" --skip-unaffordable --output reports/us_treasuries
           fi
+      - name: Publish top 50 screening summary
+        run: cat reports/us_treasuries.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Report failure
+        if: failure()
+        run: echo "US Treasury analysis failed. No current selections were produced; see the job logs." >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v6
         with:
           name: us-treasury-reports-${{ inputs.settlement_date }}

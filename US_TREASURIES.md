@@ -85,7 +85,7 @@ This creates normalized input and a `.source.json` snapshot. Use the same settle
 4. Wait for the green tick, then open the run's **Summary** page.
 5. Under **Artifacts**, download `us-treasury-reports-YYYY-MM-DD`. Extract the ZIP and open `us_treasuries.xlsx` or `.csv`.
 
-The ZIP includes normalized input, raw source snapshot, reports and exclusions. The workflow runs the full test suite first and retains artifacts for 30 days. Select **Use repository CSV** to analyse supplied broker quotes instead; enter the repository CSV path. The source selection is a workflow input, not a login requirement. The workflow becomes available on GitHub once these changes are committed and pushed. It has been validated locally; remote GitHub execution requires those published files.
+The run page Summary shows up to 50 ranked Treasury selections with maturity, annualised return, actual cash profit and coupon income, followed by quote status/date/source, broker YTM and calculation-lot details. Unaffordable offers are counted and listed separately. The ZIP includes normalized input, raw source snapshot, CSV/Excel reports, the Markdown summary and exclusions. The workflow runs the full test suite first and retains artifacts for 30 days. Select **Use repository CSV** to analyse supplied broker quotes instead; enter the repository CSV path. The source selection is a workflow input, not a login requirement. The workflow becomes available on GitHub once these changes are committed and pushed. It has been validated locally; remote GitHub execution requires those published files.
 
 ## Validation
 

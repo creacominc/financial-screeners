@@ -4,7 +4,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from .calculator import analyse_gilt
-from .reporting import read_gilts, write_reports
+from .reporting import read_gilts, write_reports, ranked_rows
 
 
 def decimal_argument(value: str) -> Decimal:
@@ -28,7 +28,10 @@ def main() -> None:
     args = build_parser().parse_args()
     analyses = [analyse_gilt(gilt, args.settlement_date, args.investment, args.fee) for gilt in read_gilts(args.input_csv)]
     csv_path, xlsx_path = write_reports(analyses, args.output)
-    print(f"Wrote {csv_path} and {xlsx_path}")
+    from .summary import write_summary
+    summary = write_summary(ranked_rows(analyses), args.output, source=str(args.input_csv),
+                            settlement=args.settlement_date, budget=args.investment, fee=args.fee)
+    print(f"Wrote {csv_path}, {xlsx_path} and {summary}")
 
 
 if __name__ == "__main__":

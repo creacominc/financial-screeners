@@ -76,7 +76,7 @@ The repository includes a manually triggered workflow, so no local computer is r
 
 If the run has a red cross, open the run and select **analyse** to inspect the failed step; a failed run may not have a report artifact. See [GitHub's artifact download instructions](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts) for more detail.
 
-The downloaded ZIP contains the fetched input data, ranked CSV, and Excel report. The workflow runs the full test suite before fetching prices and retains the artifact for 30 days. To use hand-entered data instead, select **Use repository CSV** and supply its path.
+The run page Summary shows up to 50 ranked gilt selections, followed by quote and calculation details. It includes the budget, settlement date, annualised return and actual cash profit. The downloaded ZIP contains the fetched input data, ranked CSV, Excel report and the same Markdown summary. The workflow runs the full test suite before fetching prices and retains the artifact for 30 days. To use hand-entered data instead, select **Use repository CSV** and supply its path.
 
 ## Fetch HL prices locally
 
