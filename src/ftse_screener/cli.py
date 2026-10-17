@@ -28,7 +28,7 @@ def write_reports(rows, prefix, today, illustrative=False, metadata=None):
                    data_status=data_status, refresh=refresh, execution_error=metadata.get("execution_error"), unresolved_holdings=metadata.get("unresolved_holdings",[]), rows=rows)
     prefix.with_suffix(".json").write_text(json.dumps(payload, default=json_default, indent=2)+"\n")
     columns = ["company", "ticker", "isin", "share_class", "sector", "security_type", "holding", "holding_value_gbp", "candidate", "universe_reason",
-               "gate_status", "gate_reason", "selection_score", "selection_rank", "score_status", "suggested_action", "quality_score", "growth_score", "valuation_score", "trend_score", "pe", "eps_cagr_3y", "revenue_cagr_3y", "price_return_1y", "price_return_3y", "price_return_5y", "price_gbp", "price_date", "total_score", "rank", "prior_rank", "rank_change", "components", "coverage",
+               "gate_status", "gate_reason", "selection_score", "selection_rank", "score_status", "suggested_action", "quality_score", "growth_score", "valuation_score", "trend_score", "pe", "eps_cagr_3y", "revenue_cagr_3y", "price_return_1y", "price_return_3y", "price_return_5y", "price_gbp", "price_date", "total_score", "rank", "prior_rank", "rank_change", "rank_basis", "components", "coverage",
                "sector_weight", "portfolio_basis", "dca_status", "dca_reason", "estimated_shares", "residual_gbp", "report_due",
                "actionable", "industry", "account_estimates", "data_warnings", "gate_evidence", "metrics", "membership", "execution", "price", "drivers"]
     leading = ["company", "ticker", "isin", "price_return_1y", "price_return_3y", "price_return_5y", "selection_rank", "rank", "prior_rank", "rank_change", "selection_score", "total_score"]
@@ -45,6 +45,9 @@ def write_reports(rows, prefix, today, illustrative=False, metadata=None):
             price = row.get('price',{})
             row['price_date'] = price.get('date')
             row['price_gbp'] = (Decimal(price['value']) / (100 if price['currency']=='GBX' else 1)) if price.get('value') and price.get('currency') in ('GBP','GBX') else None
+            for key in ("rank", "prior_rank", "rank_change"):
+                if row.get(key) is None:
+                    row[key] = "N/A"
             writer.writerow({k: json.dumps(row[k], default=json_default) if isinstance(row.get(k), (dict, list)) else row.get(k) for k in columns})
     lines = [f"# FTSE comparison — {today}", "", "ILLUSTRATIVE FIXTURE" if illustrative else data_status, "",
              "Proposals require human review. PASS records a dated review decision, not a permanent PFIC guarantee.", ""]
@@ -90,7 +93,7 @@ def write_reports(rows, prefix, today, illustrative=False, metadata=None):
         for position in metadata['unresolved_holdings']:
             lines.append('- '+cell(f"{position['isin']} — {position['account']}: REVIEW; {position['reason']}"))
     lines.append('')
-    groups = [("Portfolio-adjusted research ranking (PASS and REVIEW; requires holdings and targets)", lambda r: r["rank"] is not None),
+    groups = [("Portfolio-adjusted research ranking (PASS and REVIEW; requires holdings and targets)", lambda r: r["rank"] is not None and r.get("rank_basis") == "portfolio"),
               ("Existing holdings comparison", lambda r: r.get("holding")),
               ("PASS evidence and scoring details", lambda r: r["gate_status"] == "PASS"),
               ("REVIEW queue", lambda r: r["gate_status"] == "REVIEW"),
@@ -125,11 +128,26 @@ def analyse(data, as_of):
     return rows
 
 
+def apply_previous_ranks(rows, previous, as_of, illustrative):
+    """Compare only earlier reports with the same ranking basis and data mode."""
+    compatible = (date.fromisoformat(previous["as_of"]) < as_of
+                  and previous.get("illustrative", False) == illustrative)
+    prior = {r["isin"]: r for r in previous["rows"]} if compatible else {}
+    for row in rows:
+        old = prior.get(row["isin"], {})
+        rank = old.get("rank") if old.get("rank_basis") == row["rank_basis"] else None
+        if rank is not None and (type(rank) is not int or rank < 1):
+            raise ValueError("Invalid previous rank")
+        row["prior_rank"] = rank
+        row["rank_change"] = rank - row["rank"] if rank is not None and row["rank"] is not None else None
+
+
 def main():
     parser = argparse.ArgumentParser(description="Screen supplied FTSE data with auditable evidence gates")
     parser.add_argument("input", type=Path)
     parser.add_argument("--monthly-per-share", help="optional GBP affordability scenario per share, not total monthly budget")
     parser.add_argument("--as-of", type=date.fromisoformat, required=True)
+    parser.add_argument("--previous-report", type=Path, help="previous FTSE JSON report for rank movement")
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()
     if args.output is None:
@@ -142,6 +160,9 @@ def main():
                 raise ValueError("Monthly per-share scenario must be positive")
             data["monthly_per_share_gbp"] = str(value)
         rows = analyse(data, args.as_of)
+        if args.previous_report:
+            previous = json.loads(args.previous_report.read_text(), parse_float=Decimal)
+            apply_previous_ranks(rows, previous, args.as_of, data.get("illustrative", False))
         write_reports(rows, args.output, args.as_of, data.get("illustrative", False), data)
     except (OSError, ValueError, KeyError, TypeError, ArithmeticError) as error:
         parser.error(str(error))

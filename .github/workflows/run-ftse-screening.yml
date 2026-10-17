@@ -91,6 +91,14 @@ jobs:
       - name: Refresh HL public data
         if: steps.config.outputs.run == 'true' && steps.config.outputs.refresh == 'true'
         run: ftse-fetch-hl reports/ftse_input.json reports/ftse_refreshed.json --discover-universe --full-metrics --cache-dir reports/hl-cache
+      - name: Restore previous successful ranks
+        if: steps.config.outputs.run == 'true'
+        uses: actions/cache@v5
+        with:
+          path: reports/ftse-history
+          key: ftse-ranks-v1-${{ runner.os }}-${{ hashFiles('reports/ftse_input.json') }}-${{ steps.config.outputs.refresh }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            ftse-ranks-v1-${{ runner.os }}-${{ hashFiles('reports/ftse_input.json') }}-${{ steps.config.outputs.refresh }}-
       - name: Generate dated reports
         if: steps.config.outputs.run == 'true'
         env:
@@ -101,8 +109,11 @@ jobs:
           if [ -f reports/ftse_refreshed.json ]; then input=reports/ftse_refreshed.json; fi
           args=()
           if [ -n "$MONTHLY_PER_SHARE" ]; then args+=(--monthly-per-share "$MONTHLY_PER_SHARE"); fi
+          if [ -f reports/ftse-history/previous.json ]; then args+=(--previous-report reports/ftse-history/previous.json); fi
           ftse-screener "$input" --as-of "$AS_OF" --output "reports/ftse-comparison-$AS_OF" "${args[@]}"
           cat "reports/ftse-comparison-$AS_OF.md" >> "$GITHUB_STEP_SUMMARY"
+          mkdir -p reports/ftse-history
+          cp "reports/ftse-comparison-$AS_OF.json" reports/ftse-history/previous.json
       - name: Flag failure
         if: failure()
         run: echo 'FTSE run FAILED or incomplete. No current recommendations should be inferred from earlier artifacts.' >> "$GITHUB_STEP_SUMMARY"

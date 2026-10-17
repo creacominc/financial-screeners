@@ -130,7 +130,8 @@ def test_selection_rank_without_fabricating_portfolio_score():
     assert row['selection_rank']==1
     assert row['selection_score'] is not None
     assert row['total_score'] is None
-    assert row['rank'] is None
+    assert row['rank'] == 1
+    assert row['rank_basis'] == 'selection'
     assert not row['actionable']
     s['gate_evidence']['decision']='REVIEW'
     row=screen(data,TODAY)[0]

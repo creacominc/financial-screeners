@@ -329,3 +329,43 @@ def test_summary_company_links_to_exact_hl_page(data, tmp_path, url, linked):
     else:
         assert '| Company [Ordinary] |' in report
         assert '](' + url + ')' not in report
+
+
+def test_rank_falls_back_to_selection_without_portfolio(data, tmp_path):
+    data['unresolved_holdings'] = ['Unknown holding']
+    rows = screen(data, TODAY)
+    assert rows[0]['rank'] == rows[0]['selection_rank'] == 1
+    assert rows[0]['rank_basis'] == 'selection'
+    assert rows[0]['total_score'] is None
+    assert not rows[0]['actionable']
+    write_reports(rows, tmp_path/'ranked', TODAY)
+    import csv
+    exported = list(csv.DictReader((tmp_path/'ranked.csv').open()))[0]
+    assert exported['rank'] == '1'
+    assert exported['prior_rank'] == exported['rank_change'] == 'N/A'
+    assert exported['rank_basis'] == 'selection'
+
+
+@pytest.mark.parametrize('old_rank,change', [(3, 2), (1, 0)])
+def test_previous_report_rank_movement(data, old_rank, change):
+    from ftse_screener.cli import apply_previous_ranks
+    rows = screen(data, TODAY)
+    previous = dict(as_of='2026-10-15', illustrative=False,
+                    rows=[dict(isin=rows[0]['isin'], rank=old_rank, rank_basis='portfolio')])
+    apply_previous_ranks(rows, previous, TODAY, False)
+    assert rows[0]['prior_rank'] == old_rank
+    assert rows[0]['rank_change'] == change
+
+
+@pytest.mark.parametrize('change', [dict(as_of='2026-10-16'), dict(as_of='2026-10-17'), dict(illustrative=True),
+                                  dict(rows=[dict(isin='other', rank=3, rank_basis='portfolio')]),
+                                  dict(rows=[dict(isin='DEMO00000001', rank=3, rank_basis='selection')])])
+def test_incompatible_rank_history_is_not_used(data, change):
+    from ftse_screener.cli import apply_previous_ranks
+    rows = screen(data, TODAY)
+    previous = dict(as_of='2026-10-15', illustrative=False,
+                    rows=[dict(isin=rows[0]['isin'], rank=3, rank_basis='portfolio')])
+    previous.update(change)
+    apply_previous_ranks(rows, previous, TODAY, False)
+    assert rows[0]['prior_rank'] is None
+    assert rows[0]['rank_change'] is None

@@ -114,3 +114,17 @@ An explicit `--output` prefix is preserved. Bond columns place months to maturit
 net annualised return and rank immediately after name. FTSE columns place existing
 1-, 3- and 5-year price returns and research/portfolio ranks immediately after ISIN;
 these historical returns are not annualised yields or forecasts.
+
+`rank` uses the portfolio-adjusted score when every ranked selection candidate has
+portfolio context; otherwise it uses `selection_rank` throughout the report.
+`rank_basis` records `portfolio` or `selection`. This fallback does not supply a
+missing diversification score or establish purchase eligibility. Unrankable rows
+show `N/A` in the CSV.
+
+Actions caches the previous successful report separately for each input
+configuration and refresh mode. `prior_rank` matches by ISIN only when the previous
+report is from an earlier date, has the same illustrative/live mode and uses the
+same rank basis. `rank_change` is prior minus current rank: positive means an
+improvement. Missing history, new entrants and incompatible comparisons show
+`N/A`, never an invented zero. The first run starts a baseline; cache eviction can
+reset it. Local runs can use `--previous-report path/to/previous-report.json`.

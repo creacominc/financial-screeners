@@ -187,4 +187,13 @@ def screen(data, today):
     for rank, row in enumerate(selection, 1):
         row["selection_rank"] = rank
         row["suggested_action"] = ("Resolve gate review before considering purchase" if row["gate_status"] == "REVIEW" else "Consider increasing monthly purchase" if row.get("holding") else ("Consider adding to monthly purchases" if row.get("holding") is False or data.get("holdings_complete") else "Check ownership, then consider adding or increasing monthly purchase"))
+    # Use one comparable ranking basis throughout a report.
+    basis = "portfolio" if selection and all(r["total_score"] is not None for r in selection) else "selection"
+    for row in rows:
+        row["rank_basis"] = basis
+        if basis == "selection":
+            row["rank"] = row["selection_rank"]
+            row["rank_change"] = None
+            if row["rank"] is not None and row.get("prior_rank") is not None:
+                row["rank_change"] = int(row["prior_rank"]) - row["rank"]
     return rows
