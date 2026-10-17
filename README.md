@@ -122,3 +122,7 @@ a 5,000 budget per security (GBP gilts / USD Treasuries), fees of GBP 11.95 / US
 and a 24-month fetch window. The London calendar date is the calculation date; it
 is not a broker-confirmed settlement date. Use **Run workflow** to choose actual
 settlement and different inputs. Treasury public quotes remain indicative.
+
+## USD corporate bonds
+
+A separate [corporate bond screener and GitHub Action](US_CORPORATE_BONDS.md) automatically fetches Public.com bond data, screens S&P A− or higher and maturities within two years, and generates ranked research projections, a top-50 Summary, CSV/XLSX reports and source snapshots. No pasted input or API key is required. Every public result remains REVIEW: prices, contractual terms and broker availability need verification; Moody's is unavailable. Optional supplied broker-quote mode retains the A2 / A− rating policy and exact settlement accrual.

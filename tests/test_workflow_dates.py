@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 
-@pytest.mark.parametrize('workflow', ['run-gilt-analysis.yml', 'run-us-treasury-analysis.yml'])
+@pytest.mark.parametrize('workflow', ['run-gilt-analysis.yml', 'run-us-treasury-analysis.yml', 'run-us-corporate-analysis.yml'])
 @pytest.mark.parametrize('requested', ['', '2026-10-19'])
 def test_bond_workflow_calculation_date(workflow, requested, tmp_path):
     content = (Path(__file__).resolve().parents[1] / '.github/workflows' / workflow).read_text()

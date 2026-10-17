@@ -1,0 +1,138 @@
+name: Run US corporate bond comparison
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/run-us-corporate-analysis.yml'
+      - 'src/us_corporate_analyser/**'
+      - 'tests/test_us_corporate_bonds.py'
+      - 'tests/test_public_corporate_fetcher.py'
+      - 'tests/test_workflow_dates.py'
+      - 'pyproject.toml'
+      - 'src/gilt_analyser/calculator.py'
+      - 'src/gilt_analyser/models.py'
+  workflow_dispatch:
+    inputs:
+      price_source:
+        description: Automatic public research or supplied broker quotes
+        required: true
+        default: Fetch public indicative research
+        type: choice
+        options:
+          - Fetch public indicative research
+          - Use repository CSV
+      input_csv:
+        description: Repository CSV (used only when Use repository CSV is selected)
+        required: false
+        default: data/us_corporate_bonds.csv
+        type: string
+      settlement_date:
+        description: Model settlement date YYYY-MM-DD; supplied CSV must match broker accrual (blank uses London date)
+        required: false
+        type: string
+      investment:
+        description: USD budget per bond
+        required: true
+        default: '5000'
+        type: string
+      fee:
+        description: Total USD dealing fee per purchase (include applicable broker charges)
+        required: true
+        default: '0'
+        type: string
+      months:
+        description: Maximum calendar months to maturity (1 to 24)
+        required: true
+        default: '24'
+        type: string
+      minimum_moodys:
+        description: Minimum Moody's rating (supplied CSV only; unavailable from public source)
+        required: true
+        default: A2
+        type: choice
+        options: [Baa3, A3, A2, Aa3, Aaa]
+      minimum_sp:
+        description: Minimum S&P issue rating
+        required: true
+        default: A-
+        type: choice
+        options: [BBB-, A-, AA-, AAA]
+
+permissions:
+  contents: read
+
+jobs:
+  analyse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install project
+        run: python -m pip install -e ".[dev]"
+      - name: Run all tests
+        run: pytest
+      - name: Select calculation date
+        env:
+          REQUESTED_DATE: ${{ inputs.settlement_date }}
+        run: |
+          python - <<'PY'
+          import os
+          from datetime import date, datetime
+          from zoneinfo import ZoneInfo
+          calculation_date = date.fromisoformat(os.environ['REQUESTED_DATE']) if os.environ['REQUESTED_DATE'] else datetime.now(ZoneInfo('Europe/London')).date()
+          with open(os.environ['GITHUB_ENV'], 'a') as handle:
+              handle.write(f'COMPARISON_DATE={calculation_date.isoformat()}\n')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as handle:
+              handle.write(f'Calculation date: {calculation_date}. This is not a broker-confirmed settlement date.\n')
+          PY
+      - name: Validate and snapshot supplied quotes
+        if: inputs.price_source == 'Use repository CSV'
+        env:
+          INPUT_CSV: ${{ inputs.input_csv }}
+        run: |
+          python - <<'PY'
+          import os
+          import shutil
+          from pathlib import Path
+          repository = Path.cwd().resolve()
+          source = (repository / os.environ['INPUT_CSV']).resolve()
+          if repository not in source.parents or not source.is_file():
+              raise SystemExit('Input CSV must be an existing file inside the repository')
+          Path('reports').mkdir(exist_ok=True)
+          shutil.copyfile(source, 'reports/corporate-input.csv')
+          PY
+      - name: Generate corporate bond reports
+        env:
+          SETTLEMENT: ${{ env.COMPARISON_DATE }}
+          INVESTMENT: ${{ inputs.investment || '5000' }}
+          FEE: ${{ inputs.fee || '0' }}
+          MONTHS: ${{ inputs.months || '24' }}
+          MIN_MOODYS: ${{ inputs.minimum_moodys || 'A2' }}
+          MIN_SP: ${{ inputs.minimum_sp || 'A-' }}
+          PRICE_SOURCE: ${{ inputs.price_source || 'Fetch public indicative research' }}
+        run: |
+          if [ "$PRICE_SOURCE" = "Use repository CSV" ]; then
+            us-corporate-analyser reports/corporate-input.csv \
+              --settlement-date "$SETTLEMENT" --investment "$INVESTMENT" --fee "$FEE" \
+              --months "$MONTHS" --minimum-moodys "$MIN_MOODYS" --minimum-sp "$MIN_SP"
+          else
+            us-corporate-fetch-public \
+              --settlement-date "$SETTLEMENT" --investment "$INVESTMENT" --fee "$FEE" \
+              --months "$MONTHS" --minimum-sp "$MIN_SP"
+          fi
+      - name: Publish top 50 screening summary
+        run: cat reports/us-corporate-*.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Report failure
+        if: failure()
+        run: echo "Corporate bond analysis failed. No current selections produced; check the data source and job logs." >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: us-corporate-comparison-${{ github.run_id }}
+          path: reports/us-corporate-*
+          if-no-files-found: error
+          retention-days: 30

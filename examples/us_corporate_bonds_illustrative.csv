@@ -1,0 +1,2 @@
+cusip,name,coupon_rate,maturity_date,clean_buy_price,accrued_interest_per_100,price_settlement_date,moodys,sp,ratings_date,currency,terms,minimum_nominal,nominal_increment,maximum_nominal,quote_date,price_source,broker_ytm_pct
+DEMO00001,ILLUSTRATIVE ONLY - fictional corporate bond,5,2027-10-15,99,0.05555555555555555555555555556,2026-10-19,A2,A-,2026-10-16,USD,fixed_semiannual_noncallable_bullet_regular,1000,1000,10000,2026-10-16,FICTIONAL EXAMPLE - NOT LIVE,
