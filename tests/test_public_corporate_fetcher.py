@@ -64,7 +64,7 @@ def test_public_cashflow_projection_is_explicitly_hypothetical(record):
     assert r['review_status'].startswith('REVIEW')
     assert r['quote_timestamp'] == r['rating_effective_date'] == r['moodys'] == ''
     assert r['source_sp_outlook_date'] == '2024-01-01'  # Not repurposed as a rating date.
-    assert r['source_current_yield_pct'] == D('7.1')
+    assert r['source_ytw_pct'] == D('7.1')
     assert r['fetched_at_utc'] == FETCHED
     assert 'not verified' in r['assumptions']
 
@@ -171,15 +171,23 @@ def test_report_values_provenance_and_top50(record,tmp_path):
     with prefix.with_suffix('.csv').open() as handle:
         output=next(csv.DictReader(handle))
     assert tuple(output)==COLUMNS
+    assert 'source_ytw_pct' in output
+    assert 'source_current_yield_pct' not in output
+    assert D(output['source_ytw_pct']) == D(record['currentYield'])
     for key in COLUMNS:
         assert output[key] == str(row[key])
     sheet=load_workbook(prefix.with_suffix('.xlsx')).active
     assert sheet['A2'].data_type == 's'
     assert sheet.max_column == len(COLUMNS)
+    headers = [cell.value for cell in sheet[1]]
+    assert 'source_current_yield_pct' not in headers
+    assert sheet.cell(2, headers.index('source_ytw_pct') + 1).value == float(D(record['currentYield']))
     summary=prefix.with_suffix('.md').read_text()
     assert 'Moody\'s is unavailable' in summary
     assert 'not an execution-cleared' in summary
     assert 'Fetch time is not quote time' in summary
+    assert 'source_ytw_pct' in summary
+    assert 'no separate source YTM is supplied' in summary
     many=[{**row,'cusip':f'DEMO{i:05d}'} for i in range(51)]
     write_discovery(many,[],prefix,'test')
     assert 'DEMO00049' in prefix.with_suffix('.md').read_text()
