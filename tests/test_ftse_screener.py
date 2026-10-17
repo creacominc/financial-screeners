@@ -31,8 +31,8 @@ def test_weights_affordability_and_rank(data):
     assert row['estimated_shares'] == 7
     assert row['residual_gbp'] == D('11.68')
     assert row['actionable']
-    assert row['components']['diversification'] == 0
-    assert row['total_score'] == (D(20)/30*100*D('.30') + D(18)/30*100*D('.25') + D(22)/35*100*D('.20') + D('62.5')*D('.15'))
+    assert set(row['components']) == {'quality', 'growth', 'valuation', 'trend'}
+    assert row['total_score'] == (D(20)/30*100*D('.30') + D(18)/30*100*D('.25') + D(22)/35*100*D('.20') + D('62.5')*D('.15')) / D('.90')
     assert row['report_due'] == '2026-10-31T17:00:00+00:00'
 
 
@@ -52,7 +52,7 @@ def test_unresolved_gate(data, change):
     assert row['gate_status'] == 'REVIEW'
     assert row['rank'] == 1
     assert row['total_score'] is not None
-    assert row['selection_rank'] == 1
+    assert row['rank'] == 1
     assert not row['actionable']
     assert 'Resolve gate review' in row['suggested_action']
 
@@ -91,9 +91,14 @@ def test_outside_membership_can_compare_but_not_rank(data):
     assert not row['actionable']
 
 
-def test_counts_fallback(data):
-    del data['stocks'][0]['holding_value_gbp']
-    assert screen(data, TODAY)[0]['portfolio_basis'] == 'holding counts fallback'
+def test_legacy_portfolio_inputs_do_not_affect_ranking(data):
+    expected = screen(data, TODAY)
+    data['holdings'] = [{'isin': 'UNKNOWN', 'value_gbp': 'invalid'}]
+    data['unresolved_holdings'] = ['Unknown']
+    data['policy']['sector_targets'] = {'Industrials': 'invalid'}
+    data['stocks'][0].update(holding=True, holding_value_gbp='invalid', positions=[{'account': 'ISA'}])
+    assert screen(data, TODAY) == expected
+
 
 
 @pytest.mark.parametrize('change,status', [(dict(eligible=False),'INELIGIBLE'),(dict(date='2020-01-01'),'UNVERIFIED'),(dict(contribution_gbp='1'),'BLOCKED'),(dict(cutoff='2026-10-01T17:00:00+01:00'),'BLOCKED')])
@@ -140,9 +145,9 @@ def test_reports(data, tmp_path):
     assert parsed['rows'][0]['estimated_shares'] == '7'
     assert 'REVIEW queue' in prefix.with_suffix('.md').read_text()
     assert 'gate_evidence' in prefix.with_suffix('.csv').read_text()
-    assert prefix.with_suffix('.csv').read_text().splitlines()[0].split(',')[:12] == [
+    assert prefix.with_suffix('.csv').read_text().splitlines()[0].split(',')[:10] == [
         'company', 'ticker', 'isin', 'price_return_1y', 'price_return_3y', 'price_return_5y',
-        'selection_rank', 'rank', 'prior_rank', 'rank_change', 'selection_score', 'total_score']
+        'rank', 'prior_rank', 'rank_change', 'total_score']
 
 
 def test_monthly_report_schedule_uses_london(data):
@@ -208,9 +213,9 @@ def test_invalid_coverage_policy(data, value):
         screen(data, TODAY)
 
 
-def test_missing_portfolio_withholds_total(data):
+def test_score_does_not_require_portfolio(data):
     data['stocks'][0]['holding'] = False
-    assert screen(data, TODAY)[0]['total_score'] is None
+    assert screen(data, TODAY)[0]['total_score'] is not None
 
 
 def test_cutoff_date_is_blocked(data):
@@ -289,8 +294,8 @@ def test_review_research_rank_keeps_gate_and_sector_visible(data, tmp_path, kind
         data['policy']['sector_metrics'][data['stocks'][0]['sector']])
     data['stocks'].append(reviewed)
     rows = screen(data, TODAY)
-    assert rows[1]['selection_score'] == rows[0]['selection_score']
-    assert rows[1]['selection_rank'] == 2
+    assert rows[1]['total_score'] == rows[0]['total_score']
+    assert rows[1]['rank'] == 2
     assert rows[1]['gate_status'] == 'REVIEW'
     assert not rows[1]['actionable']
     write_reports(rows, tmp_path/'research', TODAY)
@@ -298,7 +303,7 @@ def test_review_research_rank_keeps_gate_and_sector_visible(data, tmp_path, kind
     exported = list(csv.DictReader((tmp_path/'research.csv').open()))
     assert exported[1]['gate_status'] == 'REVIEW'
     assert exported[1]['sector'] == 'Research sector'
-    assert exported[1]['selection_rank'] == '2'
+    assert exported[1]['rank'] == '2'
     report = (tmp_path/'research.md').read_text()
     assert '| Research sector | REVIEW |' in report
 
@@ -307,8 +312,8 @@ def test_review_missing_data_still_withholds_overall_score(data):
     data['stocks'][0]['gate_evidence']['decision'] = 'REVIEW'
     data['stocks'][0]['metrics'] = {}
     row = screen(data, TODAY)[0]
-    assert row['selection_score'] is None
-    assert row['selection_rank'] is None
+    assert row['total_score'] is None
+    assert row['rank'] is None
     assert not row['actionable']
 
 
@@ -331,19 +336,25 @@ def test_summary_company_links_to_exact_hl_page(data, tmp_path, url, linked):
         assert '](' + url + ')' not in report
 
 
-def test_rank_falls_back_to_selection_without_portfolio(data, tmp_path):
+def test_single_rank_and_no_portfolio_report_fields(data, tmp_path):
     data['unresolved_holdings'] = ['Unknown holding']
     rows = screen(data, TODAY)
-    assert rows[0]['rank'] == rows[0]['selection_rank'] == 1
+    assert rows[0]['rank'] == 1
     assert rows[0]['rank_basis'] == 'selection'
-    assert rows[0]['total_score'] is None
-    assert not rows[0]['actionable']
+    assert rows[0]['total_score'] is not None
+    assert rows[0]['actionable']
     write_reports(rows, tmp_path/'ranked', TODAY)
     import csv
     exported = list(csv.DictReader((tmp_path/'ranked.csv').open()))[0]
     assert exported['rank'] == '1'
     assert exported['prior_rank'] == exported['rank_change'] == 'N/A'
-    assert exported['rank_basis'] == 'selection'
+    report = (tmp_path/'ranked.md').read_text()
+    assert 'Portfolio-adjusted' not in report
+    assert 'Existing holdings comparison' not in report
+    assert 'Holdings requiring identity review' not in report
+    assert 'unresolved_holdings' not in json.loads((tmp_path/'ranked.json').read_text())
+    assert 'rank_basis' not in exported
+    assert not {'holding', 'holding_value_gbp', 'sector_weight', 'portfolio_basis', 'selection_rank', 'selection_score'} & exported.keys()
 
 
 @pytest.mark.parametrize('old_rank,change', [(3, 2), (1, 0)])
@@ -351,21 +362,37 @@ def test_previous_report_rank_movement(data, old_rank, change):
     from ftse_screener.cli import apply_previous_ranks
     rows = screen(data, TODAY)
     previous = dict(as_of='2026-10-15', illustrative=False,
-                    rows=[dict(isin=rows[0]['isin'], rank=old_rank, rank_basis='portfolio')])
+                    rows=[dict(isin=rows[0]['isin'], rank=old_rank, rank_basis='selection')])
     apply_previous_ranks(rows, previous, TODAY, False)
     assert rows[0]['prior_rank'] == old_rank
     assert rows[0]['rank_change'] == change
 
 
 @pytest.mark.parametrize('change', [dict(as_of='2026-10-16'), dict(as_of='2026-10-17'), dict(illustrative=True),
-                                  dict(rows=[dict(isin='other', rank=3, rank_basis='portfolio')]),
-                                  dict(rows=[dict(isin='DEMO00000001', rank=3, rank_basis='selection')])])
+                                  dict(rows=[dict(isin='other', rank=3, rank_basis='selection')]),
+                                  dict(rows=[dict(isin='DEMO00000001', rank=3, rank_basis='portfolio')])])
 def test_incompatible_rank_history_is_not_used(data, change):
     from ftse_screener.cli import apply_previous_ranks
     rows = screen(data, TODAY)
     previous = dict(as_of='2026-10-15', illustrative=False,
-                    rows=[dict(isin=rows[0]['isin'], rank=3, rank_basis='portfolio')])
+                    rows=[dict(isin=rows[0]['isin'], rank=3, rank_basis='selection')])
     previous.update(change)
     apply_previous_ranks(rows, previous, TODAY, False)
     assert rows[0]['prior_rank'] is None
     assert rows[0]['rank_change'] is None
+
+
+def test_investment_ranking_score_and_rank_decline(data):
+    from ftse_screener.cli import apply_previous_ranks
+    stronger = copy.deepcopy(data['stocks'][0])
+    stronger.update(isin='DEMO00000002')
+    stronger['metrics']['roic']['value'] = '100'
+    data['stocks'].append(stronger)
+    rows = screen(data, TODAY)
+    assert rows[1]['total_score'] > rows[0]['total_score']
+    assert [r['rank'] for r in rows] == [2, 1]
+    assert all(D(0) <= r['total_score'] <= D(100) for r in rows)
+    previous = dict(as_of='2026-10-15', illustrative=False,
+                    rows=[dict(isin=rows[0]['isin'], rank=1, rank_basis='selection')])
+    apply_previous_ranks(rows, previous, TODAY, False)
+    assert rows[0]['rank_change'] == -1

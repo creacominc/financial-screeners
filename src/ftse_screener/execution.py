@@ -76,8 +76,7 @@ def account_scenarios(stock, data, today, terms, cutoff):
         estimate=dict(account=account, eligibility='PUBLICLY_INDICATED' if indicated else 'UNVERIFIED',
                       eligibility_reason='Current public FTSE350 listing, exact share-class account availability and general HL monthly terms; confirm in Monthly Savings before submission' if indicated else 'Exact class/account/monthly eligibility unresolved',
                       eligibility_sources=[stock['hl_url'],terms['source']],checked_date=terms['date'],cutoff=cutoff)
-        positions=[p for p in stock.get('positions',[]) if p['account']==account]
-        estimate['proposed_action']='Consider increasing monthly purchase' if positions else ('Consider adding monthly purchase' if data.get('holdings_complete') else 'Confirm ownership; consider adding or increasing monthly purchase')
+        estimate['proposed_action']='Consider adding or increasing monthly purchase'
         if stock.get('gate_status') == 'REVIEW':
             estimate['proposed_action']='Resolve gate review before considering purchase'
         contribution=data.get('monthly_per_share_gbp')

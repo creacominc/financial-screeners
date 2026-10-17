@@ -120,23 +120,21 @@ def test_next_cutoff_weekends_holidays_and_london_timezone():
         next_cutoff(TODAY,terms,{'england-and-wales':{'events':[]}})
 
 
-def test_selection_rank_without_fabricating_portfolio_score():
+def test_investment_score_without_portfolio():
     data=json.loads(Path('examples/ftse_snapshot.json').read_text())
     data['illustrative']=False
     s=data['stocks'][0]
     s['holding']=False
     s['gate_evidence'].update(decision='PASS',reviewer='Reviewer',recheck_date='2027-01-01')
     row=screen(data,TODAY)[0]
-    assert row['selection_rank']==1
-    assert row['selection_score'] is not None
-    assert row['total_score'] is None
     assert row['rank'] == 1
+    assert row['total_score'] is not None
     assert row['rank_basis'] == 'selection'
     assert not row['actionable']
     s['gate_evidence']['decision']='REVIEW'
     row=screen(data,TODAY)[0]
-    assert row['selection_score'] is not None
-    assert row['selection_rank'] == 1
+    assert row['total_score'] is not None
+    assert row['rank'] == 1
     assert not row['actionable']
 
 
@@ -157,7 +155,7 @@ def test_reviews_exact_identity_and_no_renewal():
     assert data['stocks'][0]['gate_evidence']['decision']=='REVIEW'
 
 
-def test_both_account_affordability_and_ownership_context():
+def test_both_account_affordability_ignores_ownership():
     data=json.loads(Path('config/ftse_live.json').read_text())
     data['monthly_per_share_gbp']='100'
     stock=dict(isin='GB0009895292',hl_url='source',internet_tradable=True,hl_account_products=[22,98],
@@ -166,8 +164,7 @@ def test_both_account_affordability_and_ownership_context():
     rows=account_scenarios(stock,data,TODAY,parse_terms(TERMS,TODAY),'2026-10-29T00:00:00+00:00')
     assert len(rows)==2
     assert all(r['estimated_shares']==9 and r['residual_gbp']==D('9.55') for r in rows)
-    assert rows[0]['proposed_action']=='Consider increasing monthly purchase'
-    assert rows[1]['proposed_action'].startswith('Confirm ownership')
+    assert all(r['proposed_action']=='Consider adding or increasing monthly purchase' for r in rows)
     assert all(r['minimum_for_one_share_gbp']==25 for r in rows)
 
 
@@ -195,13 +192,6 @@ def test_actual_hl_financial_sector_label_uses_financial_policy():
     assert {m['name'] for m in data['policy']['sector_metrics']['Financial']['quality']}=={'roe','earnings_consistency'}
 
 
-def test_unresolved_holdings_withhold_portfolio_context():
-    from ftse_screener.portfolio import apply_holdings
-    data=dict(stocks=[dict(isin='PRESENT')],holdings=[dict(isin='OTHER',account='Stocks and Shares ISA',value_gbp='1000')])
-    apply_holdings(data)
-    assert data['unresolved_holdings'][0]['gate_status']=='REVIEW'
-
-
 def test_live_report_labels_sources_and_selection_rows(tmp_path):
     data=json.loads(Path('examples/ftse_snapshot.json').read_text())
     data['illustrative']=False
@@ -217,7 +207,7 @@ def test_live_report_labels_sources_and_selection_rows(tmp_path):
     import csv
     with (tmp_path/'live.csv').open() as handle:
         row=next(csv.DictReader(handle))
-    assert row['selection_rank']=='1'
+    assert row['rank']=='1'
     assert row['pe']=='18'
     assert row['price_gbp']=='12.34'
 

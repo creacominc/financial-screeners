@@ -25,13 +25,13 @@ def write_reports(rows, prefix, today, illustrative=False, metadata=None):
         cache = refresh['hl_page_cache']
         data_status += f"; {cache['downloaded_pages']} HL pages downloaded, {cache['cached_pages']} reused from cache (market pages: {cache['cache_utc_date']} UTC; financial pages: up to 7 days old); original provider and forecast observation dates retained"
     payload = dict(as_of=today.isoformat(), illustrative=illustrative,
-                   data_status=data_status, refresh=refresh, execution_error=metadata.get("execution_error"), unresolved_holdings=metadata.get("unresolved_holdings",[]), rows=rows)
+                   data_status=data_status, refresh=refresh, execution_error=metadata.get("execution_error"), rows=rows)
     prefix.with_suffix(".json").write_text(json.dumps(payload, default=json_default, indent=2)+"\n")
-    columns = ["company", "ticker", "isin", "share_class", "sector", "security_type", "holding", "holding_value_gbp", "candidate", "universe_reason",
-               "gate_status", "gate_reason", "selection_score", "selection_rank", "score_status", "suggested_action", "quality_score", "growth_score", "valuation_score", "trend_score", "pe", "eps_cagr_3y", "revenue_cagr_3y", "price_return_1y", "price_return_3y", "price_return_5y", "price_gbp", "price_date", "total_score", "rank", "prior_rank", "rank_change", "rank_basis", "components", "coverage",
-               "sector_weight", "portfolio_basis", "dca_status", "dca_reason", "estimated_shares", "residual_gbp", "report_due",
+    columns = ["company", "ticker", "isin", "share_class", "sector", "security_type", "candidate", "universe_reason",
+               "gate_status", "gate_reason", "score_status", "suggested_action", "quality_score", "growth_score", "valuation_score", "trend_score", "pe", "eps_cagr_3y", "revenue_cagr_3y", "price_return_1y", "price_return_3y", "price_return_5y", "price_gbp", "price_date", "total_score", "rank", "prior_rank", "rank_change", "components", "coverage",
+               "dca_status", "dca_reason", "estimated_shares", "residual_gbp", "report_due",
                "actionable", "industry", "account_estimates", "data_warnings", "gate_evidence", "metrics", "membership", "execution", "price", "drivers"]
-    leading = ["company", "ticker", "isin", "price_return_1y", "price_return_3y", "price_return_5y", "selection_rank", "rank", "prior_rank", "rank_change", "selection_score", "total_score"]
+    leading = ["company", "ticker", "isin", "price_return_1y", "price_return_3y", "price_return_5y", "rank", "prior_rank", "rank_change", "total_score"]
     columns = leading + [column for column in columns if column not in leading]
     with prefix.with_suffix(".csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns)
@@ -63,17 +63,17 @@ def write_reports(rows, prefix, today, illustrative=False, metadata=None):
             name = name.replace(character, '\\' + character)
         return f"[{name}]({quote(url, safe=':/?=&%#')})"
     passed = [r for r in rows if r['gate_status']=='PASS']
-    selected = sorted((r for r in rows if r['selection_rank'] is not None),key=lambda r:r['selection_rank'])
+    selected = sorted((r for r in rows if r['rank'] is not None),key=lambda r:r['rank'])
     lines += [f"Universe: **{len(rows)}** securities; evidence PASS: **{len(passed)}**; scored selection candidates: **{len(selected)}**; REVIEW: **{sum(r['gate_status']=='REVIEW' for r in rows)}**; EXCLUDE: **{sum(r['gate_status']=='EXCLUDE' for r in rows)}**.", "",
-              "Selection ranking uses Quality 30, Growth 25, Valuation 20 and Price/Trend 15, normalized to 100. The 10% portfolio diversification component is assessed separately when holdings and targets are supplied. Missing portfolio data never becomes a favourable diversification score.", "",
+              "Ranking uses Quality 30, Growth 25, Valuation 20 and Price/Trend 15, normalized to 100. Scores are independent of ownership and current investments.", "",
               "Research ranking includes PASS and REVIEW cases with sufficient data. Filter gate_status in the CSV to restrict the universe. REVIEW scores do not establish security/PFIC clearance; EXCLUDE cases remain unscored. Missing data or unsuitable sector policies can still prevent ranking.", "",
               "## Stock research ranking (PASS and REVIEW)", "",
-              "| Selection rank | Company | Sector | Gate status | Indicative GBP buy | Selection /100 | Quality | Growth | Valuation | Trend | Next action |",
+              "| Rank | Company | Sector | Gate status | Indicative GBP buy | Score /100 | Quality | Growth | Valuation | Trend | Next action |",
               "|---:|---|---|---|---:|---:|---:|---:|---:|---:|---|"]
     for row in selected[:25]:
         price=row.get('price',{})
         p=(Decimal(price['value'])/(100 if price.get('currency')=='GBX' else 1)) if price.get('value') and price.get('currency') in ('GBP','GBX') else None
-        values=[row['selection_rank'],company_link(row),row['sector'],row['gate_status'],p,row['selection_score']]+[row['components'].get(k) for k in ('quality','growth','valuation','trend')]+[row.get('suggested_action')]
+        values=[row['rank'],company_link(row),row['sector'],row['gate_status'],p,row['total_score']]+[row['components'].get(k) for k in ('quality','growth','valuation','trend')]+[row.get('suggested_action')]
         lines.append('| '+' | '.join(cell(v.quantize(Decimal('.01')) if isinstance(v,Decimal) else v) for v in values)+' |')
     if not selected:
         lines += ['','No candidate currently meets the membership and data requirements. See the review queue and data gaps below.']
@@ -88,14 +88,8 @@ def write_reports(rows, prefix, today, illustrative=False, metadata=None):
         lines += ['', 'HL execution checks unavailable: '+cell(metadata['execution_error'])+'. Stock research remains available; no verified account affordability estimates are supplied.']
     if refresh.get('financial_data_gaps'):
         lines += ['',f"Financial-data gaps: {len(refresh['financial_data_gaps'])}. Affected fields are withheld; details are retained in JSON."]
-    if metadata.get('unresolved_holdings'):
-        lines += ['', '## Holdings requiring identity review', '', 'These holdings were not found in the fetched universe. Portfolio diversification scores are withheld until they are supplied as reviewable security records.']
-        for position in metadata['unresolved_holdings']:
-            lines.append('- '+cell(f"{position['isin']} — {position['account']}: REVIEW; {position['reason']}"))
     lines.append('')
-    groups = [("Portfolio-adjusted research ranking (PASS and REVIEW; requires holdings and targets)", lambda r: r["rank"] is not None and r.get("rank_basis") == "portfolio"),
-              ("Existing holdings comparison", lambda r: r.get("holding")),
-              ("PASS evidence and scoring details", lambda r: r["gate_status"] == "PASS"),
+    groups = [('PASS evidence and scoring details', lambda r: r["gate_status"] == "PASS"),
               ("REVIEW queue", lambda r: r["gate_status"] == "REVIEW"),
               ("EXCLUDE audit", lambda r: r["gate_status"] == "EXCLUDE")]
     for title, include in groups:
@@ -105,7 +99,7 @@ def write_reports(rows, prefix, today, illustrative=False, metadata=None):
             # Escape user/provider content so it cannot alter the report structure.
             display_score = "withheld" if row["total_score"] is None else str(row["total_score"].quantize(Decimal(".01")))
             summary = f'{row["company"]} ({row["ticker"]}): {row["gate_status"]}; {row["gate_reason"]}; score {display_score}; rank {row["rank"] or "unranked"}; DCA {row["dca_status"]}: {row["dca_reason"]}. ' + "; ".join(row["drivers"])
-            summary += f'; selection rank {row["selection_rank"] or "withheld"}; indicative quote {row.get("price",{}).get("value")} {row.get("price",{}).get("currency")} dated {row.get("price",{}).get("date")}'
+            summary += f'; indicative quote {row.get("price",{}).get("value")} {row.get("price",{}).get("currency")} dated {row.get("price",{}).get("date")}'
             if row.get("gate_evidence",{}).get("source"):
                 summary += "; evidence: " + row["gate_evidence"]["source"]
             if not row["candidate"]:

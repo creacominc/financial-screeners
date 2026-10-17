@@ -9,8 +9,7 @@
     "price_max_days": 7,
     "cutoff_buffer_days": 5,
     "minimum_coverage": "1",
-    "sector_metrics": {},
-    "sector_targets": {}
+    "sector_metrics": {}
   },
   "stocks": []
 }

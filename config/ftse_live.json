@@ -10,7 +10,6 @@
     "cutoff_buffer_days": 5,
     "minimum_coverage": "0.75",
     "sector_metrics": {},
-    "sector_targets": {},
     "baseline_policy": "hl-public-v1",
     "review_years": [
       2025,
@@ -114,7 +113,5 @@
       "purchase_tax_rate": "0.005",
       "purchase_tax_basis": "Illustrative 0.5% UK SDRT estimate for this UK-incorporated ordinary share; verify applicability in HL. No personal tax calculation."
     }
-  },
-  "holdings": [],
-  "holdings_complete": false
+  }
 }

@@ -23,9 +23,8 @@ Company names in the summary ranking link to the exact HL security factsheet for
 The live report separates:
 
 - **Stock research ranking:** current-universe PASS and REVIEW cases with sufficient financial data; investment components normalized to 100. This can run without a supplied portfolio.
-- **Portfolio-adjusted ranking:** includes the 10% diversification component only when holdings and sector targets are available. Missing portfolio information never earns diversification points.
 - **Account checks:** separate public eligibility indications and optional affordability scenarios for ISA and Fund and Share Account.
-- **PASS detail, holdings comparisons, REVIEW queue and EXCLUDE audit:** evidence and underlying metrics remain visible. REVIEW cases receive research scores and retain their gate reasons; EXCLUDE cases receive no investment scores.
+- **PASS detail, REVIEW queue and EXCLUDE audit:** evidence and underlying metrics remain visible. REVIEW cases receive research scores and retain their gate reasons; EXCLUDE cases receive no investment scores.
 
 The first full validation on 16 October 2026 processed **351 securities** and found **three financial-statement gaps**. Counts are recalculated each run; these are validation results, not hardcoded expected outcomes.
 
@@ -45,7 +44,7 @@ The source reviews were checked on 16 October 2026 and expire on 14 January 2027
 
 ## Scoring policy
 
-`hl-public-v1` is an explicit baseline, implemented in `src/ftse_screener/policy.py`. Component weights remain **Quality 30%, Growth 25%, Valuation 20%, Price/Trend 15%, Diversification 10%**. Explicit sector policies override the baseline.
+`hl-public-v1` is an explicit baseline, implemented in `src/ftse_screener/policy.py`. Relative component weights are **Quality 30, Growth 25, Valuation 20 and Price/Trend 15**, normalized by their sum of 90 to a score out of 100. Explicit sector policies override the baseline.
 
 | Component | Public-data implementation |
 |---|---|
@@ -60,19 +59,24 @@ Within a component, normalize each metric to 0–100 between explicit low/high a
 
 The baseline's minimum weighted data coverage is **75% in every investment component**. Annual metrics expire after 450 days; forecast observations after 30 days; P/E and price returns after seven days. Missing metrics reduce coverage. Above the threshold, the available metrics are averaged within their component, with coverage shown. An unavailable component withholds the selection score. No component weight is silently reassigned to another component.
 
-Selection score = `(Quality × .30 + Growth × .25 + Valuation × .20 + Trend × .15) / .90`. It is labelled **selection only**, not the full five-component portfolio score. Sort descending by Decimal score, then ISIN for deterministic ties. Complete portfolio totals retain the separate original `rank`; `selection_rank` is the independent stock-selection rank.
+`total_score` = `(Quality × .30 + Growth × .25 + Valuation × .20 + Trend × .15) / .90`.
+`rank` sorts descending by this Decimal score, then ISIN for deterministic ties.
+This preserves the previous independent selection scores and removes the duplicate
+`selection_score` and `selection_rank` fields. No ownership, holdings, allocation,
+sector target or diversification adjustment is used.
 
 The public adapter does not currently supply FTSE350-index-relative strength, daily 200-day averages or total returns. It uses the explicitly labelled **absolute price-return** submetrics above instead. Returns at or below −90% are withheld for corporate-action/data-quality review, since splits/redenominations can contaminate raw series. No dividends-adjusted claim is made. Other supplied policies can use alternative dated metrics.
 
-## Holdings and accounts
+## Independent research and accounts
 
-You can run stock selection without entering private holdings. Ownership is then unknown, and suggestions say to check ownership and add or increase as appropriate. Lower rank alone is never a sell/reduce instruction.
+Use the ranking to research new securities or review monthly Direct Debit amounts.
+It requires no portfolio information. Legacy holdings and sector-target inputs are
+ignored and are omitted from comparison reports. Suggestions use the same wording
+for every stock: consider adding or increasing monthly purchases, subject to gate
+review. A lower rank is not a sell or reduce instruction.
 
-To personalize, add `holdings` to your private configuration. Each position has `isin`, `account` (`Stocks and Shares ISA` or `Fund and Share Account`), `value_gbp`, and optionally your current contribution. Both accounts may hold the same ISIN: values aggregate for the equity-sector exposure, while proposals retain account context. Set `holdings_complete: true` only when the list is complete. Add reviewable stock records for holdings outside the fetched universe; unresolved holdings are shown separately and withhold portfolio diversification.
-
-Use GBP-converted position values consistently; no unconfigured FX conversion is performed. Gilts/cash can be attached as separate context but are not included in the equity-sector denominator. Explicit supplied stock `holding_value_gbp` values are supported, with a labelled all-holdings-counts fallback when some values are absent.
-
-Set `policy.sector_targets` to fractions in (0,1]. Diversification = `clamp(50 + 50 × (target − actual sector weight) / target, 0, 100)`. Both existing and new holdings use the same scoring rules. No current allocation is inferred from the qualitative holdings list in the design.
+ISA and Fund and Share Account scenarios remain separate. Optional per-security
+contributions estimate affordability without knowing current ownership.
 
 ## HL execution and cutoff checks
 
@@ -105,21 +109,19 @@ All tests run before fetching. GitHub Actions restores the most recent public-pa
 
 The Python distribution is **financial-screeners**; independent `gilt_analyser`, `us_treasury_analyser` and `ftse_screener` packages preserve existing commands and separate GBP/USD calculations. Local folder and GitHub repository names remain unchanged. A future US-stock package can be added without moving existing packages.
 
-HL's [website terms, section 8](https://www.hl.co.uk/__data/assets/pdf_file/0010/13718431/Website-terms-of-use-UK-0918.pdf) describe personal-use extracts and restrict commercial use. This integration is for the requested personal research workflow; it does not assume redistribution rights. Keep portfolio configurations and reports private as appropriate. No live reports or raw fetched HTML are committed to the repository.
+HL's [website terms, section 8](https://www.hl.co.uk/__data/assets/pdf_file/0010/13718431/Website-terms-of-use-UK-0918.pdf) describe personal-use extracts and restrict commercial use. This integration is for the requested personal research workflow; it does not assume redistribution rights. Keep configurations and reports private as appropriate. No live reports or raw fetched HTML are committed to the repository.
 
 Comparison reports default to dated prefixes: `gilt-comparison-YYYY-MM-DD`,
 `us-treasury-comparison-YYYY-MM-DD`, and `ftse-comparison-YYYY-MM-DD`.
 Bond dates are settlement dates; FTSE dates are the requested as-of dates.
 An explicit `--output` prefix is preserved. Bond columns place months to maturity,
 net annualised return and rank immediately after name. FTSE columns place existing
-1-, 3- and 5-year price returns and research/portfolio ranks immediately after ISIN;
+1-, 3- and 5-year price returns and rank and rank movement immediately after ISIN;
 these historical returns are not annualised yields or forecasts.
 
-`rank` uses the portfolio-adjusted score when every ranked selection candidate has
-portfolio context; otherwise it uses `selection_rank` throughout the report.
-`rank_basis` records `portfolio` or `selection`. This fallback does not supply a
-missing diversification score or establish purchase eligibility. Unrankable rows
-show `N/A` in the CSV.
+Unrankable rows show `N/A` in the CSV. JSON retains `rank_basis: selection` solely
+to validate comparisons with previous reports. Older portfolio-adjusted ranks
+are not compared with the current investment-only ranking.
 
 Actions caches the previous successful report separately for each input
 configuration and refresh mode. `prior_rank` matches by ISIN only when the previous

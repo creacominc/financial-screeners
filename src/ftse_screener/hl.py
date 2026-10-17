@@ -175,7 +175,7 @@ def refresh(data, get=fetch, pause=time.sleep, discover_universe=False, full_met
         if any(old.get(key) and old[key] != parsed[key] for key in ('sector', 'share_class', 'ticker')):
             old['gate_evidence'] = dict(decision='REVIEW', rationale='HL classification/identity changed; review corporate event and policy')
             old['execution'] = dict(eligible=None, source=url, date=today, rationale='Identity/classification changed; reverify exact share class')
-        # Supplied review decisions and holding/execution context survive price refresh.
+        # Supplied review decisions and execution context survive price refresh.
         old.update({k:v for k,v in parsed.items() if k not in ('security_type','metrics')})
         old.setdefault('security_type', parsed['security_type'])
         if parsed['security_type'] in ('investment_trust','etf','reit'):
@@ -193,8 +193,6 @@ def refresh(data, get=fetch, pause=time.sleep, discover_universe=False, full_met
     result['stocks'] = list(stocks.values())
     populate_policy(result)
     apply_reviews(result)
-    from .portfolio import apply_holdings
-    apply_holdings(result)
     result['refresh'] = dict(status='LIVE HL public fields refreshed; gate reviews retain original review dates',
                              financial_data_gaps=failures, constituent_count=len(member_isins),
                              performance_count=len(performance), full_metrics=full_metrics,

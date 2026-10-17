@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 D = Decimal
 WEIGHTS = {"quality": D(".30"), "growth": D(".25"), "valuation": D(".20"),
-           "trend": D(".15"), "diversification": D(".10")}
+           "trend": D(".15")}
 PROHIBITED = {"investment_trust", "etf", "fund", "vct", "closed_end_fund", "spac", "cash_shell"}
 
 
@@ -122,15 +122,6 @@ def screen(data, today):
         raise ValueError("minimum_coverage must be in (0, 1]")
     stocks = data["stocks"]
     seen = set()
-    sectors = {}
-    holdings = [s for s in stocks if s.get("holding")]
-    values_available = all("holding_value_gbp" in s for s in holdings)
-    for s in holdings:
-        value = number(s["holding_value_gbp"]) if values_available else D(1)
-        if value < 0:
-            raise ValueError("negative holding value")
-        sectors[s["sector"]] = sectors.get(s["sector"], D(0)) + value
-    total = sum(sectors.values(), D(0)) if not data.get("unresolved_holdings") else D(0)
     rows = []
     for stock in stocks:
         for key in ("isin", "ticker", "company", "share_class", "sector"):
@@ -142,10 +133,11 @@ def screen(data, today):
         status, reason = gate(stock, policy, today)
         membership = stock.get("membership", {})
         candidate = membership.get("ftse350") is True and fresh(membership, today, policy["membership_max_days"])
-        row = dict(stock, gate_status=status, gate_reason=reason, candidate=candidate,
-                   total_score=None, rank=None, rank_change=None, selection_score=None, selection_rank=None, score_status="WITHHELD", components={}, coverage={}, drivers=[],
-                   sector_weight=sectors.get(stock["sector"], D(0))/total if total else None,
-                   portfolio_basis="values" if values_available else "holding counts fallback",
+        legacy_fields = {"holding", "holding_value_gbp", "positions", "sector_weight",
+                         "portfolio_basis", "selection_score", "selection_rank"}
+        row = dict({k: v for k, v in stock.items() if k not in legacy_fields},
+                   gate_status=status, gate_reason=reason, candidate=candidate,
+                   total_score=None, rank=None, rank_change=None, score_status="WITHHELD", components={}, coverage={}, drivers=[],
                    universe_reason="Current supplied FTSE350 membership" if candidate else "Outside/unverified/stale FTSE350 membership; purchase ranking withheld",
                    actionable=False)
         row.update(affordability(stock, policy, today))
@@ -158,22 +150,10 @@ def screen(data, today):
                     row["coverage"][name] = coverage
                     row["drivers"].extend(drivers)
                 if all(v >= minimum for v in row["coverage"].values()) and all(row["components"].get(k) is not None for k in ("quality", "growth", "valuation", "trend")):
-                    row["selection_score"] = sum((row["components"][k] * WEIGHTS[k] for k in ("quality", "growth", "valuation", "trend")), D(0)) / D(".90")
-                    row["score_status"] = "SELECTION_ONLY: 90% investment components normalized to 100; portfolio diversification not assessed"
-                target = policy["sector_targets"].get(stock["sector"])
-                if total and target is not None:
-                    target = number(target)
-                    if not 0 < target <= 1:
-                        raise ValueError("sector targets must be in (0, 1]")
-                    row["components"]["diversification"] = max(D(0), min(D(100), D(50)+(target-row["sector_weight"])/target*50))
-                    row["drivers"].append(f'Sector exposure {row["sector_weight"]*100}% versus target {target*100}%; diversification {row["components"]["diversification"]}/100')
-                else:
-                    row["components"]["diversification"] = None
-                if all(v >= minimum for v in row["coverage"].values()) and all(v is not None for v in row["components"].values()):
-                    row["total_score"] = sum((row["components"][k]*w for k,w in WEIGHTS.items()), D(0))
-                    row["score_status"] = "COMPLETE: includes portfolio diversification"
+                    row["total_score"] = sum((row["components"][k] * WEIGHTS[k] for k in WEIGHTS), D(0)) / D(".90")
+                    row["score_status"] = "COMPLETE: investment components normalized to 100"
             if row["total_score"] is None:
-                row["drivers"].append("Portfolio total withheld: missing portfolio context; investment selection score available" if row["selection_score"] is not None else "Score withheld: missing sector policy, portfolio context or minimum coverage")
+                row["drivers"].append("Score withheld: missing sector policy or minimum coverage")
         if status == "REVIEW":
             row["score_status"] += "; RESEARCH ONLY: unresolved security/PFIC evidence"
         rows.append(row)
@@ -183,17 +163,10 @@ def screen(data, today):
         if row.get("prior_rank") is not None:
             row["rank_change"] = int(row["prior_rank"]) - rank
         row["actionable"] = row["gate_status"] == "PASS" and row["dca_status"] == "ESTIMATE" and not data.get("illustrative", False)
-    selection = sorted((r for r in rows if r["candidate"] and r["selection_score"] is not None), key=lambda r: (-r["selection_score"], r["isin"]))
-    for rank, row in enumerate(selection, 1):
-        row["selection_rank"] = rank
-        row["suggested_action"] = ("Resolve gate review before considering purchase" if row["gate_status"] == "REVIEW" else "Consider increasing monthly purchase" if row.get("holding") else ("Consider adding to monthly purchases" if row.get("holding") is False or data.get("holdings_complete") else "Check ownership, then consider adding or increasing monthly purchase"))
-    # Use one comparable ranking basis throughout a report.
-    basis = "portfolio" if selection and all(r["total_score"] is not None for r in selection) else "selection"
     for row in rows:
-        row["rank_basis"] = basis
-        if basis == "selection":
-            row["rank"] = row["selection_rank"]
-            row["rank_change"] = None
-            if row["rank"] is not None and row.get("prior_rank") is not None:
-                row["rank_change"] = int(row["prior_rank"]) - row["rank"]
+        # Retain the selection basis in JSON for safe comparisons with older reports.
+        row["rank_basis"] = "selection"
+        if row["rank"] is not None:
+            row["suggested_action"] = ("Resolve gate review before considering purchase" if row["gate_status"] == "REVIEW"
+                                       else "Consider adding or increasing monthly purchase")
     return rows

@@ -1,3 +1,5 @@
+> Policy update, 17 October 2026: use a single investment score and rank, with no portfolio inputs or diversification adjustments. Quality, Growth, Valuation and Trend retain relative weights 30:25:20:15, normalized to 100. This supersedes the previous portfolio design.
+
 > Policy update, 16 October 2026: at the user’s request, research rankings now include both PASS and unresolved REVIEW cases with sufficient financial data. Gate status and reasons remain visible for spreadsheet filtering; REVIEW is never silently promoted to PASS or marked actionable. EXCLUDE cases remain unscored. This supersedes the PASS-only scoring/ranking requirements below; other requirements continue to apply.
 
 # FTSE 350 Stock Screener — Design Handoff
@@ -8,7 +10,7 @@ Purpose: preserve the agreed design for implementation in Codex / VS Code. This 
 ## Implementation and execution
 
 - Build the screening and reporting engine in **Python**, running on **GitHub Actions**.
-- Prefer this over HL or Barchart screening because it supports explicit exclusions, repeatable weighted scoring, portfolio context, evidence, and explainable results.
+- Prefer this over HL or Barchart screening because it supports explicit exclusions, repeatable weighted scoring, evidence, and explainable results.
 - Use **Hargreaves Lansdown (HL)** for execution through regular monthly Direct Debit investing and gradual pound-cost averaging (DCA).
 - Treat Barchart as an optional comparison or data source, not the primary engine.
 - Keep this work separate from the existing gilt calculations. This handoff does not authorize changes to existing source files or introduce scraping. Confirm data access, licensing and permitted use before implementing integrations.
@@ -49,16 +51,15 @@ Conservatively flag or exclude REITs and property-investment structures. Use EXC
 
 ## Scoring survivors
 
-Use the same rules for existing holdings and new FTSE 350 candidates. Avoid favouring a holding merely because it is already owned. Apply the gate to every holding as well; holdings outside the current FTSE 350 can remain in a separate portfolio review but must be clearly marked outside the candidate universe.
+Score all current FTSE 350 candidates by the same investment rules, independently of ownership.
 
 | Component | Weight | Suggested submetrics |
 |---|---:|---|
-| Quality | **30%** | ROIC / ROE; operating margin; free cash flow (FCF) conversion; debt / EBITDA; earnings consistency |
-| Growth | **25%** | Three-year EPS CAGR; forecast EPS growth; revenue CAGR; FCF growth |
-| Valuation | **20%** | Sector-relative and historical P/E; FCF yield; EV / EBITDA and PEG where appropriate |
-| Price / Trend | **15%** | Twelve-month relative strength; three- and five-year returns; position relative to the 200-day moving average |
-| Portfolio Diversification | **10%** | Portfolio sector penalty for concentrated exposures and benefit for underrepresented exposures |
-| **Total** | **100%** | Weighted component scores |
+| Quality | **30/90** | ROIC / ROE; operating margin; free cash flow (FCF) conversion; debt / EBITDA; earnings consistency |
+| Growth | **25/90** | Three-year EPS CAGR; forecast EPS growth; revenue CAGR; FCF growth |
+| Valuation | **20/90** | Sector-relative and historical P/E; FCF yield; EV / EBITDA and PEG where appropriate |
+| Price / Trend | **15/90** | Twelve-month relative strength; three- and five-year returns; position relative to the 200-day moving average |
+| **Total** | **Normalized to 100** | Weighted sum divided by .90 |
 
 Implementation details to settle explicitly:
 
@@ -67,20 +68,6 @@ Implementation details to settle explicitly:
 - Use sector-appropriate metrics. Debt / EBITDA, FCF and EV / EBITDA may be unsuitable for banks and insurers; document substitutions and keep component weights consistent.
 - Handle negative earnings, invalid PEGs and missing forecasts explicitly. Never treat unavailable data as zero valuation or silently award a favourable score.
 - Publish data coverage and freshness. Withhold or clearly mark incomplete scores according to a documented minimum-coverage policy.
-- Use current portfolio weights where available for the sector penalty. Counts of holdings are only a labelled fallback, not a substitute for actual exposure.
-
-## Portfolio context
-
-The supplied holdings suggest concentration in the following areas; confirm with current holdings, values and sector classifications before calculating allocation penalties:
-
-- **Construction, engineering and industrials:** Keller, Costain, Diploma, Hill & Smith, Balfour Beatty, Oxford Instruments, Luceco, Halma; Computacenter adds technology-services exposure, while Filtronic was also mentioned in the prior discussion.
-- **Commodities, energy and plantations:** Shell, Rio Tinto, Antofagasta, M.P. Evans, AEP Plantations and Tungsten West.
-- **Banks and financials:** HSBC, Standard Chartered, Investec and Man Group.
-- **Utilities:** National Grid and SSE; Centrica was also mentioned in the prior discussion.
-- **Defence:** BAE Systems.
-- **Semiconductors:** ASML; BESI was also mentioned in the prior discussion.
-
-Healthcare, software, data / information services and consumer / service businesses appear relatively underrepresented. This is a qualitative starting point, not a verified current allocation. The supplied list also includes Tesco and Unilever, so consumer exposure is not absent. Keep gilts visible in overall portfolio context while scoring equities separately.
 
 ## Initial research shortlist
 
@@ -108,31 +95,30 @@ Produce machine-readable CSV / JSON plus a readable Markdown report. Suggested c
 | Group | Columns |
 |---|---|
 | Identity | Company, ticker, ISIN, share class, sector, security type, current FTSE 350 membership |
-| Portfolio | Existing holding / new candidate, account where relevant, current value / weight, sector weight |
 | Gate | PASS / REVIEW / EXCLUDE, exclusion or review reason, evidence links, applicable year, reviewed date, recheck date |
-| Scores | Quality, Growth, Valuation, Price / Trend, Diversification, weighted total, rank, prior rank / rank change |
+| Scores | Quality, Growth, Valuation, Price / Trend, weighted total, rank, prior rank / rank change |
 | Evidence | Key underlying metrics, metric dates, source links, coverage / confidence, stale-data flags |
 | DCA | Recent share price and date, proposed monthly contribution, estimated whole shares, residual cash, HL monthly eligibility and checked date, DCA status / reason |
-| Explanation | Why it ranked here, main strengths, risks / weak metrics, diversification effect, next review or action |
+| Explanation | Why it ranked here, main strengths, risks / weak metrics, next review or action |
 
-Separate ranked PASS candidates, existing-holding comparisons, REVIEW cases and EXCLUDE cases. Do not give excluded securities misleading investment scores. Provide concise reason text for every status and score driver, for example: “Strong cash conversion and consistent earnings; valuation above sector history; reduces industrial concentration; monthly allocation currently buys one whole share.” Generate explanations from actual data rather than generic templates that imply unsupported conclusions.
+Separate ranked PASS and REVIEW candidates and EXCLUDE audit cases. Do not give excluded securities misleading investment scores. Provide concise reason text for every status and score driver, for example: “Strong cash conversion and consistent earnings; valuation above sector history; monthly allocation currently buys one whole share.” Generate explanations from actual data rather than generic templates that imply unsupported conclusions.
 
 ## Refresh and reporting schedule
 
 - **Weekly:** refresh prices, trend metrics and rankings; refresh fundamentals when new data becomes available. Record source dates and explain material ranking changes.
 - **Monthly:** produce an actionable report sufficiently before HL's verified Direct Debit instruction-change cutoff, allowing time for review and submission. Schedule relative to the actual cutoff with a configurable buffer rather than assuming a fixed date.
-- The monthly report should highlight eligible affordable candidates, existing holdings under the same rules, proposed contribution allocations, concentration effects, gate changes and unresolved reviews.
+- The monthly report should highlight eligible affordable candidates, optional per-security contribution scenarios, gate changes and unresolved reviews.
 - Recheck membership, HL eligibility and PFIC/security evidence on an explicit cadence and when material corporate events occur. A weekly price refresh alone does not refresh these checks.
 - Configure GitHub Actions scheduling with explicit timezone handling; retain dated reports and flag failed or incomplete refreshes instead of presenting stale results as current.
 
 ## Suggested implementation sequence
 
-1. Confirm current holdings and portfolio weights, monthly contribution budget, account types and permitted data sources.
+1. Confirm optional per-security contribution scenarios, account types and permitted data sources.
 2. Define the security/PFIC evidence policy and implement auditable PASS / REVIEW / EXCLUDE decisions.
 3. Build a current constituent universe and normalize identifiers, sectors and data dates.
-4. Implement sector-aware scoring and apply it consistently to holdings and candidates.
+4. Implement sector-aware scoring and apply it consistently to all candidates.
 5. Add HL eligibility, whole-share affordability and explanatory reports.
 6. Add weekly refresh and monthly reporting schedules, with dated artifacts and failure visibility.
 7. Validate gates, missing-data behaviour, score weights, sector-specific treatment, affordability and report scheduling with focused automated tests before relying on outputs.
 
-Open decisions include data provider / licensing, detailed PFIC review evidence, submetric weights and normalization, portfolio sector targets, monthly budget allocation, and the verified HL cutoff and reporting buffer. Preserve these as explicit configuration or documented policy rather than hidden assumptions.
+Open decisions include data provider / licensing, detailed PFIC review evidence, submetric weights and normalization, and the verified HL cutoff and reporting buffer. Preserve these as explicit configuration or documented policy rather than hidden assumptions.
