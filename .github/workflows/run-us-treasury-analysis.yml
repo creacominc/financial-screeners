@@ -1,6 +1,18 @@
 name: Run US Treasury comparison
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/run-us-treasury-analysis.yml'
+      - 'src/us_treasury_analyser/**'
+      - 'tests/test_us_treasuries.py'
+      - 'tests/test_wsj_fetcher.py'
+      - 'tests/test_bond_summary.py'
+      - 'tests/test_workflow_dates.py'
+      - 'pyproject.toml'
+      - 'src/gilt_analyser/cli.py'
+      - 'src/gilt_analyser/summary.py'
   workflow_dispatch:
     inputs:
       investment:
@@ -53,6 +65,21 @@ jobs:
         run: python -m pip install -e ".[dev]"
       - name: Run all tests
         run: pytest
+      - name: Select calculation date
+        env:
+          REQUESTED_DATE: ${{ inputs.settlement_date }}
+        run: |
+          python - <<'PY'
+          import os
+          from datetime import date, datetime
+          from zoneinfo import ZoneInfo
+          calculation_date = date.fromisoformat(os.environ['REQUESTED_DATE']) if os.environ['REQUESTED_DATE'] else datetime.now(ZoneInfo('Europe/London')).date()
+          with open(os.environ['GITHUB_ENV'], 'a') as handle:
+              handle.write(f'COMPARISON_DATE={calculation_date.isoformat()}\n')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as handle:
+              handle.write(f'Calculation date: {calculation_date}. Automatic runs use the London calendar date, not a broker-confirmed settlement date.\n')
+          PY
+
       - name: Validate and snapshot input
         if: inputs.price_source == 'Use repository CSV'
         env:
@@ -71,11 +98,11 @@ jobs:
           PY
       - name: Generate US Treasury reports
         env:
-          INVESTMENT: ${{ inputs.investment }}
-          FEE: ${{ inputs.fee }}
-          SETTLEMENT_DATE: ${{ inputs.settlement_date }}
-          PRICE_SOURCE: ${{ inputs.price_source }}
-          MONTHS: ${{ inputs.months }}
+          INVESTMENT: ${{ inputs.investment || '5000' }}
+          FEE: ${{ inputs.fee || '0' }}
+          SETTLEMENT_DATE: ${{ env.COMPARISON_DATE }}
+          PRICE_SOURCE: ${{ inputs.price_source || 'Fetch current WSJ indicative quotes' }}
+          MONTHS: ${{ inputs.months || '24' }}
         run: |
           if [ "$PRICE_SOURCE" = "Use repository CSV" ]; then
             us-treasury-analyser reports/us_treasuries_input.csv \
@@ -87,13 +114,13 @@ jobs:
               --settlement-date "$SETTLEMENT_DATE" --skip-unaffordable --output "reports/us-treasury-comparison-$SETTLEMENT_DATE"
           fi
       - name: Publish top 50 screening summary
-        run: cat "reports/us-treasury-comparison-${{ inputs.settlement_date }}.md" >> "$GITHUB_STEP_SUMMARY"
+        run: cat "reports/us-treasury-comparison-${{ env.COMPARISON_DATE }}.md" >> "$GITHUB_STEP_SUMMARY"
       - name: Report failure
         if: failure()
         run: echo "US Treasury analysis failed. No current selections were produced; see the job logs." >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v6
         with:
-          name: us-treasury-comparison-${{ inputs.settlement_date }}
+          name: us-treasury-comparison-${{ env.COMPARISON_DATE }}
           path: |
             reports/us-treasury-comparison-*
             reports/us_treasuries_input.csv

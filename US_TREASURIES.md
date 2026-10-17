@@ -98,3 +98,10 @@ An explicit `--output` prefix is preserved. Bond columns place months to maturit
 net annualised return and rank immediately after name. FTSE columns place existing
 1-, 3- and 5-year price returns and research/portfolio ranks immediately after ISIN;
 these historical returns are not annualised yields or forecasts.
+
+Relevant changes pushed to `main` automatically run the bond comparison, including
+tests, current public quotes, reports and the Actions summary. Automatic runs use
+a 5,000 budget per security (GBP gilts / USD Treasuries), fees of GBP 11.95 / USD 0,
+and a 24-month fetch window. The London calendar date is the calculation date; it
+is not a broker-confirmed settlement date. Use **Run workflow** to choose actual
+settlement and different inputs. Treasury public quotes remain indicative.
