@@ -4,6 +4,14 @@ Independent Python tools for UK gilts, US Treasuries and [FTSE equities](FTSE_SC
 
 The UK gilt tool is a command-line application for comparing **conventional UK gilts held to maturity**. It can fetch current public Hargreaves Lansdown buy prices or use clean buy prices supplied in a CSV.
 
+## Disclaimer
+
+This software and its data, calculations, rankings and reports are provided for personal research and informational purposes only. They do not constitute investment, financial, tax or legal advice, or a recommendation to buy, sell or hold any investment.
+
+**Use this software entirely at your own risk. You are solely responsible for your investment decisions and for any losses, costs or other consequences arising from your use of, or reliance on, this software or its outputs.** Independently verify prices, calculations, assumptions, eligibility and dealing terms before acting. Quotes may be delayed, incomplete or incorrect, and calculated returns are estimates, not guarantees. Investments can fall in value and you may lose capital.
+
+The software is provided "as is" and "as available", without warranties of any kind, express or implied, including accuracy, completeness, fitness for a particular purpose or uninterrupted availability. To the fullest extent permitted by applicable law, the authors and contributors accept no liability for losses or damages arising from use of the software or reliance on its outputs. Nothing in this disclaimer excludes or limits liability that cannot lawfully be excluded or limited.
+
 ## What it calculates
 
 - Semi-annual coupon dates, working backwards in six-month intervals from maturity.
@@ -93,3 +101,9 @@ This version assumes normal cum-dividend settlement and a regular semi-annual co
 ## Development
 
 All financial behavior must be covered by automated tests. Run `pytest` before committing. See `AGENTS.md` for the precise conventions contributors must preserve.
+
+## License
+
+No open-source license has been granted for this repository at present. All rights are reserved by the respective copyright holders, except where applicable law permits otherwise. Public availability of the source code does not itself grant permission to use, copy, modify or redistribute it.
+
+Third-party dependencies and data remain subject to their respective licenses and terms. The disclaimer above does not grant a software license.

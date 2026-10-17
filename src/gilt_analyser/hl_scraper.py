@@ -10,8 +10,9 @@ from pathlib import Path
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 
+# https://github.com/creacominc/financial-screeners.git
 HL_GILTS_URL = "https://www.hl.co.uk/shares/corporate-bonds-gilts/bond-prices/uk-gilts"
-USER_AGENT = "uk-gilt-analyser/0.2 (+https://github.com/creacominc/uk-gilt-analyser)"
+USER_AGENT = "financial-screeners/0.2 (+https://github.com/creacominc/financial-screeners)"
 
 
 @dataclass(frozen=True)
