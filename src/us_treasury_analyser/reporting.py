@@ -10,8 +10,8 @@ from .calculator import Analysis, Treasury, validate
 
 INPUT_COLUMNS = ("cusip", "name", "security_type", "coupon_rate", "maturity_date", "clean_buy_price")
 COLUMNS = (
-    "rank", "cusip", "security_id", "name", "security_type", "currency", "quote_status", "months_to_maturity",
-    "net_annualised_return_pct", "coupon_rate_pct", "maturity_date", "settlement_date",
+    "cusip", "security_id", "name", "months_to_maturity", "net_annualised_return_pct", "rank",
+    "security_type", "currency", "quote_status", "coupon_rate_pct", "maturity_date", "settlement_date",
     "clean_buy_price_per_100", "accrued_interest_per_100", "dirty_price_per_100",
     "investment_budget", "dealing_fee", "nominal_purchased", "clean_consideration",
     "accrued_interest_paid", "total_initial_cost", "unused_cash", "coupon_income",

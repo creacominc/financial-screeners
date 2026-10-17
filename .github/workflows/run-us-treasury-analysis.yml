@@ -1,4 +1,4 @@
-name: Run US Treasury analysis
+name: Run US Treasury comparison
 
 on:
   workflow_dispatch:
@@ -80,20 +80,22 @@ jobs:
           if [ "$PRICE_SOURCE" = "Use repository CSV" ]; then
             us-treasury-analyser reports/us_treasuries_input.csv \
               --investment "$INVESTMENT" --fee "$FEE" \
-              --settlement-date "$SETTLEMENT_DATE" --skip-unaffordable --output reports/us_treasuries
+              --settlement-date "$SETTLEMENT_DATE" --skip-unaffordable --output "reports/us-treasury-comparison-$SETTLEMENT_DATE"
           else
             us-treasury-analyser --fetch-wsj --months "$MONTHS" \
               --investment "$INVESTMENT" --fee "$FEE" \
-              --settlement-date "$SETTLEMENT_DATE" --skip-unaffordable --output reports/us_treasuries
+              --settlement-date "$SETTLEMENT_DATE" --skip-unaffordable --output "reports/us-treasury-comparison-$SETTLEMENT_DATE"
           fi
       - name: Publish top 50 screening summary
-        run: cat reports/us_treasuries.md >> "$GITHUB_STEP_SUMMARY"
+        run: cat "reports/us-treasury-comparison-${{ inputs.settlement_date }}.md" >> "$GITHUB_STEP_SUMMARY"
       - name: Report failure
         if: failure()
         run: echo "US Treasury analysis failed. No current selections were produced; see the job logs." >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v6
         with:
-          name: us-treasury-reports-${{ inputs.settlement_date }}
-          path: reports/us_treasuries*
+          name: us-treasury-comparison-${{ inputs.settlement_date }}
+          path: |
+            reports/us-treasury-comparison-*
+            reports/us_treasuries_input.csv
           if-no-files-found: error
           retention-days: 30

@@ -1,4 +1,4 @@
-name: Run gilt analysis
+name: Run gilt comparison
 
 on:
   workflow_dispatch:
@@ -102,7 +102,7 @@ jobs:
       - name: Upload reports
         uses: actions/upload-artifact@v6
         with:
-          name: gilt-reports-${{ inputs.settlement_date }}
+          name: gilt-comparison-${{ inputs.settlement_date }}
           path: reports/
           if-no-files-found: error
           retention-days: 30

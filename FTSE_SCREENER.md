@@ -2,7 +2,7 @@
 
 ## Steps in brief
 
-1. In GitHub, open **Actions → Run FTSE screening → Run workflow** on `main`.
+1. In GitHub, open **Actions → Run FTSE comparison → Run workflow** on `main`.
 2. Keep **Configuration path** as `config/ftse_live.json` and **Refresh HL public data** enabled. These are the defaults; they fetch real data without an HL login.
 3. Optionally enter a **GBP amount per share** to see whole-share affordability in both your Stocks and Shares ISA and Fund and Share Account. This amount is a scenario for each candidate separately, not a total budget or automatic allocation.
 4. When the run finishes, read the stock-selection shortlist in its Summary and download the `ftse-reports-…` artifact for CSV, JSON, Markdown and input snapshots. Allow roughly 15–30 minutes for a cold full-market fetch, depending on HL response times. Prices, membership, performance and HL terms are cached within the UTC date. Financial pages (including forecasts) are reused for up to seven days across runs; forecast observation dates and reported period dates are preserved. The report states how many pages were downloaded versus reused.
@@ -92,7 +92,7 @@ The upcoming collection date advances to an England/Wales working day. The instr
 .venv/bin/ftse-fetch-hl config/ftse_live.json reports/ftse_current.json \
   --discover-universe --full-metrics --cache-dir reports/hl-cache
 .venv/bin/ftse-screener reports/ftse_current.json \
-  --as-of YYYY-MM-DD --output reports/ftse-YYYY-MM-DD
+  --as-of YYYY-MM-DD --output reports/ftse-comparison-YYYY-MM-DD
 ```
 
 Add `--monthly-per-share 100` to the last command for a £100-per-candidate scenario. Supplied JSON input remains supported: financial numbers should be decimal strings, dates ISO, and each stock requires company, ticker, ISIN, share class, sector and security type. `metrics` contain `value`, `date`, `source` and descriptive basis/units. The example fixture documents this format. Missing data, booleans and non-finite financial numbers do not become zero.
@@ -106,3 +106,11 @@ All tests run before fetching. GitHub Actions restores the most recent public-pa
 The Python distribution is **financial-screeners**; independent `gilt_analyser`, `us_treasury_analyser` and `ftse_screener` packages preserve existing commands and separate GBP/USD calculations. Local folder and GitHub repository names remain unchanged. A future US-stock package can be added without moving existing packages.
 
 HL's [website terms, section 8](https://www.hl.co.uk/__data/assets/pdf_file/0010/13718431/Website-terms-of-use-UK-0918.pdf) describe personal-use extracts and restrict commercial use. This integration is for the requested personal research workflow; it does not assume redistribution rights. Keep portfolio configurations and reports private as appropriate. No live reports or raw fetched HTML are committed to the repository.
+
+Comparison reports default to dated prefixes: `gilt-comparison-YYYY-MM-DD`,
+`us-treasury-comparison-YYYY-MM-DD`, and `ftse-comparison-YYYY-MM-DD`.
+Bond dates are settlement dates; FTSE dates are the requested as-of dates.
+An explicit `--output` prefix is preserved. Bond columns place months to maturity,
+net annualised return and rank immediately after name. FTSE columns place existing
+1-, 3- and 5-year price returns and research/portfolio ranks immediately after ISIN;
+these historical returns are not annualised yields or forecasts.

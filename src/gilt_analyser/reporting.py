@@ -34,7 +34,7 @@ def read_gilts(path: Path) -> list[Gilt]:
 
 
 COLUMNS = (
-    "rank", "isin", "hl_code", "name", "months_to_maturity", "net_annualised_return_pct",
+    "isin", "hl_code", "name", "months_to_maturity", "net_annualised_return_pct", "rank",
     "coupon_rate_pct", "maturity_date", "settlement_date",
     "clean_buy_price_per_100", "accrued_interest_per_100", "dirty_price_per_100",
     "investment_budget", "dealing_fee", "nominal_purchased", "clean_consideration",
@@ -100,10 +100,10 @@ def write_reports(analyses: list[Analysis], output_prefix: Path) -> tuple[Path, 
         sheet.append([float(row[key]) if isinstance(row[key], Decimal) else row[key] for key in COLUMNS])
     sheet.freeze_panes = "A2"
     sheet.auto_filter.ref = sheet.dimensions
-    sheet.column_dimensions["B"].width = 16
-    sheet.column_dimensions["C"].width = 12
-    sheet.column_dimensions["D"].width = 34
-    for column in range(5, len(COLUMNS) + 1):
+    sheet.column_dimensions["A"].width = 16
+    sheet.column_dimensions["B"].width = 12
+    sheet.column_dimensions["C"].width = 34
+    for column in range(4, len(COLUMNS) + 1):
         for cell in sheet.iter_cols(min_col=column, max_col=column, min_row=2):
             for value in cell:
                 if isinstance(value.value, float):

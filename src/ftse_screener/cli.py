@@ -31,6 +31,8 @@ def write_reports(rows, prefix, today, illustrative=False, metadata=None):
                "gate_status", "gate_reason", "selection_score", "selection_rank", "score_status", "suggested_action", "quality_score", "growth_score", "valuation_score", "trend_score", "pe", "eps_cagr_3y", "revenue_cagr_3y", "price_return_1y", "price_return_3y", "price_return_5y", "price_gbp", "price_date", "total_score", "rank", "prior_rank", "rank_change", "components", "coverage",
                "sector_weight", "portfolio_basis", "dca_status", "dca_reason", "estimated_shares", "residual_gbp", "report_due",
                "actionable", "industry", "account_estimates", "data_warnings", "gate_evidence", "metrics", "membership", "execution", "price", "drivers"]
+    leading = ["company", "ticker", "isin", "price_return_1y", "price_return_3y", "price_return_5y", "selection_rank", "rank", "prior_rank", "rank_change", "selection_score", "total_score"]
+    columns = leading + [column for column in columns if column not in leading]
     with prefix.with_suffix(".csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns)
         writer.writeheader()
@@ -44,7 +46,7 @@ def write_reports(rows, prefix, today, illustrative=False, metadata=None):
             row['price_date'] = price.get('date')
             row['price_gbp'] = (Decimal(price['value']) / (100 if price['currency']=='GBX' else 1)) if price.get('value') and price.get('currency') in ('GBP','GBX') else None
             writer.writerow({k: json.dumps(row[k], default=json_default) if isinstance(row.get(k), (dict, list)) else row.get(k) for k in columns})
-    lines = [f"# FTSE screening — {today}", "", "ILLUSTRATIVE FIXTURE" if illustrative else data_status, "",
+    lines = [f"# FTSE comparison — {today}", "", "ILLUSTRATIVE FIXTURE" if illustrative else data_status, "",
              "Proposals require human review. PASS records a dated review decision, not a permanent PFIC guarantee.", ""]
     def cell(value):
         return str(value if value is not None else '—').replace('|','/').replace('\n',' ').replace('<','&lt;').replace('>','&gt;')
@@ -128,8 +130,10 @@ def main():
     parser.add_argument("input", type=Path)
     parser.add_argument("--monthly-per-share", help="optional GBP affordability scenario per share, not total monthly budget")
     parser.add_argument("--as-of", type=date.fromisoformat, required=True)
-    parser.add_argument("--output", type=Path, default=Path("reports/ftse"))
+    parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()
+    if args.output is None:
+        args.output = Path(f"reports/ftse-comparison-{args.as_of.isoformat()}")
     try:
         data = json.loads(args.input.read_text(), parse_float=Decimal)
         if args.monthly_per_share:

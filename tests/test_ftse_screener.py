@@ -140,6 +140,9 @@ def test_reports(data, tmp_path):
     assert parsed['rows'][0]['estimated_shares'] == '7'
     assert 'REVIEW queue' in prefix.with_suffix('.md').read_text()
     assert 'gate_evidence' in prefix.with_suffix('.csv').read_text()
+    assert prefix.with_suffix('.csv').read_text().splitlines()[0].split(',')[:12] == [
+        'company', 'ticker', 'isin', 'price_return_1y', 'price_return_3y', 'price_return_5y',
+        'selection_rank', 'rank', 'prior_rank', 'rank_change', 'selection_score', 'total_score']
 
 
 def test_monthly_report_schedule_uses_london(data):

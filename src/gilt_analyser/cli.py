@@ -20,12 +20,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--investment", required=True, type=decimal_argument, help="cash budget per gilt, in GBP")
     parser.add_argument("--fee", type=decimal_argument, default=Decimal("11.95"), help="HL dealing fee per purchase")
     parser.add_argument("--settlement-date", type=date.fromisoformat, default=date.today(), help="YYYY-MM-DD (default: today)")
-    parser.add_argument("--output", type=Path, default=Path("reports/gilt-comparison"), help="output filename prefix")
+    parser.add_argument("--output", type=Path, default=None, help="output filename prefix")
     return parser
 
 
 def main() -> None:
     args = build_parser().parse_args()
+    if args.output is None:
+        args.output = Path(f"reports/gilt-comparison-{args.settlement_date.isoformat()}")
     analyses = [analyse_gilt(gilt, args.settlement_date, args.investment, args.fee) for gilt in read_gilts(args.input_csv)]
     csv_path, xlsx_path = write_reports(analyses, args.output)
     from .summary import write_summary

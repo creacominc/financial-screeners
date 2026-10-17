@@ -24,7 +24,7 @@ The software is provided "as is" and "as available", without warranties of any k
 
 Money and rate calculations use Python `Decimal`. Excel cells are converted to numeric values only when the already-calculated results are written.
 
-A separate [US Treasury analyser](US_TREASURIES.md) fetches public indicative WSJ quotes for Treasury bills and fixed-rate notes/bonds in the next 24 months, or accepts supplied broker offer prices. It writes `us_treasuries.csv` and Excel using the same ranking approach, with its own command, input format and GitHub workflow.
+A separate [US Treasury analyser](US_TREASURIES.md) fetches public indicative WSJ quotes for Treasury bills and fixed-rate notes/bonds in the next 24 months, or accepts supplied broker offer prices. It writes `us-treasury-comparison-YYYY-MM-DD.csv` and Excel using the same ranking approach, with its own command, input format and GitHub workflow.
 
 ## Setup
 
@@ -74,12 +74,12 @@ This creates `reports/gilts-2026-07-22.csv` and `.xlsx`. If `--settlement-date` 
 
 The repository includes a manually triggered workflow, so no local computer is required:
 
-1. Open the repository's **Actions** tab and select **Run gilt analysis**.
+1. Open the repository's **Actions** tab and select **Run gilt comparison**.
 2. Choose **Run workflow**, enter the investment amount, HL fee, and settlement date. Leave **Price data source** set to **Fetch current HL buy prices**.
 3. Start the workflow. It downloads conventional gilts maturing after the settlement date and within the next 24 calendar months, then uses the displayed HL **Buy** prices.
-4. Stay on **Actions → Run gilt analysis**. Your new run appears in the list of workflow runs; refresh the page if it has not appeared yet. Identify it by its start time and wait for a green tick, which means it succeeded.
+4. Stay on **Actions → Run gilt comparison**. Your new run appears in the list of workflow runs; refresh the page if it has not appeared yet. Identify it by its start time and wait for a green tick, which means it succeeded.
 5. Click or tap that run's title to open its **Summary** page. If you are viewing the **analyse** job's logs instead, select **Summary** to return to the run overview.
-6. Scroll down to **Artifacts** and click or tap `gilt-reports-YYYY-MM-DD` (where the date is your settlement date) to download the ZIP. You must be signed into GitHub with access to this repository.
+6. Scroll down to **Artifacts** and click or tap `gilt-comparison-YYYY-MM-DD` (where the date is your settlement date) to download the ZIP. You must be signed into GitHub with access to this repository.
 7. Open the downloaded ZIP and extract its files, then open the `.xlsx` report in Excel or the `.csv` report in a spreadsheet app.
 
 If the run has a red cross, open the run and select **analyse** to inspect the failed step; a failed run may not have a report artifact. See [GitHub's artifact download instructions](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts) for more detail.
@@ -107,3 +107,11 @@ All financial behavior must be covered by automated tests. Run `pytest` before c
 No open-source license has been granted for this repository at present. All rights are reserved by the respective copyright holders, except where applicable law permits otherwise. Public availability of the source code does not itself grant permission to use, copy, modify or redistribute it.
 
 Third-party dependencies and data remain subject to their respective licenses and terms. The disclaimer above does not grant a software license.
+
+Comparison reports default to dated prefixes: `gilt-comparison-YYYY-MM-DD`,
+`us-treasury-comparison-YYYY-MM-DD`, and `ftse-comparison-YYYY-MM-DD`.
+Bond dates are settlement dates; FTSE dates are the requested as-of dates.
+An explicit `--output` prefix is preserved. Bond columns place months to maturity,
+net annualised return and rank immediately after name. FTSE columns place existing
+1-, 3- and 5-year price returns and research/portfolio ranks immediately after ISIN;
+these historical returns are not annualised yields or forecasts.

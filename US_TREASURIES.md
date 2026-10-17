@@ -4,23 +4,23 @@
 
 1. Install this project using the setup in `README.md` (Python 3.11+).
 2. Run the command below with your USD budget, fee and settlement date.
-3. Open `reports/us_treasuries.xlsx` or `.csv`.
+3. Open `reports/us-treasury-comparison-YYYY-MM-DD.xlsx` or `.csv`.
 4. Confirm a shortlisted security's CUSIP, current price and minimum purchase size at Schwab.
 
 ```bash
 us-treasury-analyser --investment 5000 --fee 0 \
-  --settlement-date 2026-10-15 --output reports/us_treasuries
+  --settlement-date 2026-10-15 --output reports/us-treasury-comparison-2026-10-15
 ```
 
 With no input CSV, the command fetches the latest public [WSJ Treasury quote tables](https://www.wsj.com/market-data/bonds/treasuries) and analyses bills and fixed-coupon notes/bonds maturing strictly after settlement and within the next **24 calendar months**, inclusive of the end date. `--fetch-wsj` makes that choice explicit. `--months 12` changes the window.
 
 The budget and fee are USD amounts **per security comparison**, not a single portfolio allocation. The example settlement date is an assumption; supply the actual intended settlement date. Output files are:
 
-- `us_treasuries.csv`: ranked comparison.
-- `us_treasuries.xlsx`: the same comparison in Excel.
-- `us_treasuries_input.csv`: normalized fetched prices, assumptions and provenance.
-- `us_treasuries_source.json`: raw source tables, their published dates and fetch timestamp.
-- `us_treasuries_excluded.csv`: offers exceeding the calculation budget, if `--skip-unaffordable` is supplied.
+- `us-treasury-comparison-YYYY-MM-DD.csv`: ranked comparison.
+- `us-treasury-comparison-YYYY-MM-DD.xlsx`: the same comparison in Excel.
+- `us-treasury-comparison-YYYY-MM-DD_input.csv`: normalized fetched prices, assumptions and provenance.
+- `us-treasury-comparison-YYYY-MM-DD_source.json`: raw source tables, their published dates and fetch timestamp.
+- `us-treasury-comparison-YYYY-MM-DD_excluded.csv`: offers exceeding the calculation budget, if `--skip-unaffordable` is supplied.
 
 Fetch errors, missing or malformed quotes, ambiguous duplicate terms, and stale data cause failure. The command does not fall back to old CSVs or illustrative prices. The default maximum quote age is seven calendar days before the supplied settlement date, allowing for weekends and nearby settlement dates. Quotes dated after settlement are rejected. `--max-quote-age-days 3` tightens the age limit. Published quote dates can differ between tables and are retained per security; fetch time is separate. The source is not guaranteed to be intraday or simultaneous with Schwab.
 
@@ -79,14 +79,22 @@ This creates normalized input and a `.source.json` snapshot. Use the same settle
 
 ## Run from a phone with GitHub Actions
 
-1. In the repository's **Actions** tab, choose **Run US Treasury analysis**.
+1. In the repository's **Actions** tab, choose **Run US Treasury comparison**.
 2. Select **Run workflow**. Enter the USD investment budget, fee and actual intended settlement date.
 3. Leave **Price data source** on **Fetch current WSJ indicative quotes**, and **Maturity window** at `24` for the same range as the UK analyser.
 4. Wait for the green tick, then open the run's **Summary** page.
-5. Under **Artifacts**, download `us-treasury-reports-YYYY-MM-DD`. Extract the ZIP and open `us_treasuries.xlsx` or `.csv`.
+5. Under **Artifacts**, download `us-treasury-comparison-YYYY-MM-DD`. Extract the ZIP and open `us-treasury-comparison-YYYY-MM-DD.xlsx` or `.csv`.
 
 The run page Summary shows up to 50 ranked Treasury selections with maturity, annualised return, actual cash profit and coupon income, followed by quote status/date/source, broker YTM and calculation-lot details. Unaffordable offers are counted and listed separately. The ZIP includes normalized input, raw source snapshot, CSV/Excel reports, the Markdown summary and exclusions. The workflow runs the full test suite first and retains artifacts for 30 days. Select **Use repository CSV** to analyse supplied broker quotes instead; enter the repository CSV path. The source selection is a workflow input, not a login requirement. The workflow becomes available on GitHub once these changes are committed and pushed. It has been validated locally; remote GitHub execution requires those published files.
 
 ## Validation
 
 Run `pytest`. Focused tests cover Treasury fractional prices, official bill-pricing examples, source parsing, quote age, maturity-window boundaries, metadata and assumptions, input round-trips, and the combined fetch-to-report command, alongside the original cash-flow and gilt tests. Public website changes or blocking can still make future fetches fail; the supplied-CSV path remains available.
+
+Comparison reports default to dated prefixes: `gilt-comparison-YYYY-MM-DD`,
+`us-treasury-comparison-YYYY-MM-DD`, and `ftse-comparison-YYYY-MM-DD`.
+Bond dates are settlement dates; FTSE dates are the requested as-of dates.
+An explicit `--output` prefix is preserved. Bond columns place months to maturity,
+net annualised return and rank immediately after name. FTSE columns place existing
+1-, 3- and 5-year price returns and research/portfolio ranks immediately after ISIN;
+these historical returns are not annualised yields or forecasts.

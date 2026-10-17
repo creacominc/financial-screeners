@@ -20,9 +20,11 @@ def main() -> None:
     parser.add_argument("--investment", required=True, type=decimal_argument, help="USD budget per security")
     parser.add_argument("--fee", type=decimal_argument, default=Decimal("0"), help="USD dealing fee per purchase")
     parser.add_argument("--settlement-date", required=True, type=date.fromisoformat, help="actual settlement date YYYY-MM-DD")
-    parser.add_argument("--output", type=Path, default=Path("reports/us_treasuries"))
+    parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--skip-unaffordable", action="store_true", help="report offers exceeding the budget in a separate exclusions CSV")
     args = parser.parse_args()
+    if args.output is None:
+        args.output = Path(f"reports/us-treasury-comparison-{args.settlement_date.isoformat()}")
     if args.fetch_wsj and args.input_csv:
         parser.error("supply an input CSV or --fetch-wsj, not both")
     if args.months < 1 or args.max_quote_age_days < 0:

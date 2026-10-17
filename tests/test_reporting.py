@@ -23,18 +23,18 @@ def test_read_and_write_ranked_reports(tmp_path) -> None:
     csv_path, xlsx_path = write_reports(analyses, tmp_path / "comparison")
     with csv_path.open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
-    assert list(rows[0])[3:6] == ["name", "months_to_maturity", "net_annualised_return_pct"]
+    assert list(rows[0])[2:6] == ["name", "months_to_maturity", "net_annualised_return_pct", "rank"]
     assert [row["isin"] for row in rows] == ["HIGH", "LOW"]
     assert rows[0]["hl_code"] == "HIGH27"
     assert rows[0]["cgt_exempt_redemption_gain"] != ""
     assert rows[0]["months_to_maturity"] == "12.00"
     workbook = load_workbook(xlsx_path, read_only=True)
-    assert workbook["Gilt comparison"]["B2"].value == "HIGH"
-    assert workbook["Gilt comparison"]["C2"].value == "HIGH27"
+    assert workbook["Gilt comparison"]["A2"].value == "HIGH"
+    assert workbook["Gilt comparison"]["B2"].value == "HIGH27"
     sheet = workbook["Gilt comparison"]
     headers = [cell.value for cell in sheet[1]]
     assert headers == list(rows[0])
-    assert sheet["F2"].value == pytest.approx(float(rows[0]["net_annualised_return_pct"]))
+    assert sheet["E2"].value == pytest.approx(float(rows[0]["net_annualised_return_pct"]))
     assert sheet.cell(2, headers.index("months_to_maturity") + 1).value == 12
 
 
@@ -102,3 +102,25 @@ def test_input_without_optional_hl_code_remains_supported(tmp_path) -> None:
         encoding="utf-8",
     )
     assert read_gilts(source)[0].hl_code == ""
+
+
+@pytest.mark.parametrize('module,input_file,date_flag,extra,stem,extensions', [
+    ('gilt_analyser', 'gilts.csv', '--settlement-date', ['--investment', '5000'], 'gilt-comparison', ['csv', 'xlsx', 'md']),
+    ('us_treasury_analyser', 'us_treasuries.csv', '--settlement-date', ['--investment', '5000'], 'us-treasury-comparison', ['csv', 'xlsx', 'md']),
+    ('ftse_screener', 'ftse_snapshot.json', '--as-of', [], 'ftse-comparison', ['csv', 'json', 'md']),
+])
+def test_default_report_names_include_comparison_date(tmp_path, module, input_file, date_flag, extra, stem, extensions):
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    result = subprocess.run(
+        [sys.executable, '-m', module + '.cli', str(root / 'examples' / input_file),
+         date_flag, '2026-10-16', *extra], cwd=tmp_path,
+        env={**os.environ, 'PYTHONPATH': str(root / 'src')}, capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    for extension in extensions:
+        assert (tmp_path / 'reports' / f'{stem}-2026-10-16.{extension}').is_file()

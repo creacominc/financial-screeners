@@ -1,4 +1,4 @@
-name: Run FTSE screening
+name: Run FTSE comparison
 
 on:
   workflow_dispatch:
@@ -101,15 +101,15 @@ jobs:
           if [ -f reports/ftse_refreshed.json ]; then input=reports/ftse_refreshed.json; fi
           args=()
           if [ -n "$MONTHLY_PER_SHARE" ]; then args+=(--monthly-per-share "$MONTHLY_PER_SHARE"); fi
-          ftse-screener "$input" --as-of "$AS_OF" --output "reports/ftse-$AS_OF" "${args[@]}"
-          cat "reports/ftse-$AS_OF.md" >> "$GITHUB_STEP_SUMMARY"
+          ftse-screener "$input" --as-of "$AS_OF" --output "reports/ftse-comparison-$AS_OF" "${args[@]}"
+          cat "reports/ftse-comparison-$AS_OF.md" >> "$GITHUB_STEP_SUMMARY"
       - name: Flag failure
         if: failure()
         run: echo 'FTSE run FAILED or incomplete. No current recommendations should be inferred from earlier artifacts.' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v6
         if: always() && steps.config.outputs.run == 'true'
         with:
-          name: ftse-reports-${{ steps.config.outputs.date }}-${{ github.run_id }}
+          name: ftse-comparison-${{ steps.config.outputs.date }}-${{ github.run_id }}
           path: reports/ftse*
           retention-days: 30
           if-no-files-found: warn

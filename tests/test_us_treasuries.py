@@ -134,6 +134,7 @@ def test_csv_excel_fields_and_decimal_roundtrip(note, tmp_path):
         reader = csv.DictReader(handle)
         row = next(reader)
         assert tuple(reader.fieldnames) == COLUMNS
+        assert tuple(reader.fieldnames[:6]) == ("cusip", "security_id", "name", "months_to_maturity", "net_annualised_return_pct", "rank")
     assert row["currency"] == "USD"
     assert D(row["total_cash_profit"]) == item.total_cash_profit
     assert D(row["net_annualised_return_pct"]) == item.annualised_yield * 100
