@@ -17,6 +17,9 @@ def json_default(value):
 
 
 def write_reports(rows, prefix, today, illustrative=False, metadata=None):
+    rows = sorted(rows, key=lambda row: (row["rank"] is None,
+                                         row["rank"] if row["rank"] is not None else 0,
+                                         row["isin"]))
     prefix.parent.mkdir(parents=True, exist_ok=True)
     metadata = metadata or {}
     refresh = metadata.get("refresh", {})

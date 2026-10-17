@@ -61,6 +61,8 @@ The baseline's minimum weighted data coverage is **75% in every investment compo
 
 `total_score` = `(Quality × .30 + Growth × .25 + Valuation × .20 + Trend × .15) / .90`.
 `rank` sorts descending by this Decimal score, then ISIN for deterministic ties.
+Generated CSV and JSON rows are ordered by ascending rank (1 first), with
+unranked securities at the end ordered by ISIN.
 This preserves the previous independent selection scores and removes the duplicate
 `selection_score` and `selection_rank` fields. No ownership, holdings, allocation,
 sector target or diversification adjustment is used.

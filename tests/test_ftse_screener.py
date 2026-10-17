@@ -396,3 +396,23 @@ def test_investment_ranking_score_and_rank_decline(data):
                     rows=[dict(isin=rows[0]['isin'], rank=1, rank_basis='selection')])
     apply_previous_ranks(rows, previous, TODAY, False)
     assert rows[0]['rank_change'] == -1
+
+
+def test_generated_reports_sort_by_rank_with_unranked_last(data, tmp_path):
+    import csv
+    rows = []
+    for isin, rank in [('DEMO00000004', None), ('DEMO00000003', 10),
+                       ('DEMO00000002', 2), ('DEMO00000001', 1),
+                       ('DEMO00000000', None)]:
+        row = copy.deepcopy(screen(data, TODAY)[0])
+        row.update(isin=isin, rank=rank)
+        rows.append(row)
+    original_order = [row['isin'] for row in rows]
+    write_reports(rows, tmp_path/'sorted', TODAY)
+    with (tmp_path/'sorted.csv').open() as handle:
+        exported = list(csv.DictReader(handle))
+    assert [row['rank'] for row in exported] == ['1', '2', '10', 'N/A', 'N/A']
+    assert [row['isin'] for row in exported][-2:] == ['DEMO00000000', 'DEMO00000004']
+    saved = json.loads((tmp_path/'sorted.json').read_text())['rows']
+    assert [row['isin'] for row in saved] == [row['isin'] for row in exported]
+    assert [row['isin'] for row in rows] == original_order
