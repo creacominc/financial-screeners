@@ -137,5 +137,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release view latest-reports >/dev/null 2>&1 || gh release create latest-reports --title 'Latest Reports' --notes 'Latest screening CSV reports'
-          cp "reports/us-treasury-comparison-${{ env.COMPARISON_DATE }}.csv" "$RUNNER_TEMP/us-treasuries-latest.csv"
-          gh release upload latest-reports "$RUNNER_TEMP/us-treasuries-latest.csv" --clobber
+          gh release upload latest-reports "reports/us-treasury-comparison-${{ env.COMPARISON_DATE }}.csv" --clobber
