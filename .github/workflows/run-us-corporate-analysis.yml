@@ -28,7 +28,7 @@ on:
         default: data/us_corporate_bonds.csv
         type: string
       settlement_date:
-        description: Model settlement date YYYY-MM-DD; supplied CSV must match broker accrual (blank uses London date)
+        description: Model settlement date YYYY-MM-DD; supplied CSV must match broker accrual (blank uses next US trading day)
         required: false
         type: string
       investment:
@@ -86,12 +86,13 @@ jobs:
           python - <<'PY'
           import os
           from datetime import date, datetime
+          from gilt_analyser.trading_dates import next_trading_day
           from zoneinfo import ZoneInfo
-          calculation_date = date.fromisoformat(os.environ['REQUESTED_DATE']) if os.environ['REQUESTED_DATE'] else datetime.now(ZoneInfo('Europe/London')).date()
+          calculation_date = date.fromisoformat(os.environ['REQUESTED_DATE']) if os.environ['REQUESTED_DATE'] else next_trading_day(datetime.now(ZoneInfo('Europe/London')).date(), 'US')
           with open(os.environ['GITHUB_ENV'], 'a') as handle:
               handle.write(f'COMPARISON_DATE={calculation_date.isoformat()}\n')
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as handle:
-              handle.write(f'Calculation date: {calculation_date}. This is not a broker-confirmed settlement date.\n')
+              handle.write(f'Calculation date: {calculation_date}. Default uses the next market trading day; this is not a broker-confirmed settlement date.\n')
           PY
       - name: Validate and snapshot supplied quotes
         if: inputs.price_source == 'Use repository CSV'
