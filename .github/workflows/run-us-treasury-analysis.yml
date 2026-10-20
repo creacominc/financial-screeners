@@ -53,6 +53,9 @@ permissions:
 
 jobs:
   analyse:
+    concurrency:
+      group: latest-financial-reports-release
+      cancel-in-progress: false
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
