@@ -60,7 +60,7 @@ on:
         options: [BBB-, A-, AA-, AAA]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   analyse:
@@ -136,3 +136,13 @@ jobs:
           path: reports/us-corporate-*
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish latest corporate CSV
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view latest-reports >/dev/null 2>&1 || gh release create latest-reports --title 'Latest Reports' --notes 'Latest screening CSV reports'
+          csv=$(find reports -maxdepth 1 -name 'us-corporate-*.csv' ! -name '*_excluded.csv' ! -name '*_input.csv' | sort | head -n 1)
+          test -n "$csv"
+          cp "$csv" "$RUNNER_TEMP/us-corporate-latest.csv"
+          gh release upload latest-reports "$RUNNER_TEMP/us-corporate-latest.csv" --clobber
