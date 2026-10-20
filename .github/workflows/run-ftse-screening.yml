@@ -27,7 +27,7 @@ on:
     # - cron: '15 7 * * *'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   screen:
@@ -124,3 +124,11 @@ jobs:
           path: reports/ftse*
           retention-days: 30
           if-no-files-found: warn
+
+      - name: Publish latest FTSE CSV
+        if: steps.config.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view latest-reports >/dev/null 2>&1 || gh release create latest-reports --title 'Latest Reports' --notes 'Current screening CSVs'
+          gh release upload latest-reports reports/ftse-comparison-*.csv --clobber
