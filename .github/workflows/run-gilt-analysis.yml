@@ -26,8 +26,9 @@ on:
         default: "11.95"
         type: string
       settlement_date:
-        description: Settlement date (YYYY-MM-DD)
-        required: true
+        description: Settlement date (YYYY-MM-DD); blank selects next trading day
+        required: false
+        default: ''
         type: string
       input_csv:
         description: Input CSV path in this repository
@@ -77,12 +78,13 @@ jobs:
           python - <<'PY'
           import os
           from datetime import date, datetime
+          from gilt_analyser.trading_dates import next_trading_day
           from zoneinfo import ZoneInfo
-          calculation_date = date.fromisoformat(os.environ['REQUESTED_DATE']) if os.environ['REQUESTED_DATE'] else datetime.now(ZoneInfo('Europe/London')).date()
+          calculation_date = date.fromisoformat(os.environ['REQUESTED_DATE']) if os.environ['REQUESTED_DATE'] else next_trading_day(datetime.now(ZoneInfo('Europe/London')).date(), 'UK')
           with open(os.environ['GITHUB_ENV'], 'a') as handle:
               handle.write(f'COMPARISON_DATE={calculation_date.isoformat()}\n')
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as handle:
-              handle.write(f'Calculation date: {calculation_date}. Automatic runs use the London calendar date, not a broker-confirmed settlement date.\n')
+              handle.write(f'Calculation date: {calculation_date}. Default uses the next market trading day; this is not a broker-confirmed settlement date.\n')
           PY
 
       - name: Validate input CSV path
