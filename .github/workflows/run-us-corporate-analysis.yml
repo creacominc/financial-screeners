@@ -148,5 +148,4 @@ jobs:
           gh release view latest-reports >/dev/null 2>&1 || gh release create latest-reports --title 'Latest Reports' --notes 'Latest screening CSV reports'
           csv=$(find reports -maxdepth 1 -name 'us-corporate-*.csv' ! -name '*_excluded.csv' ! -name '*_input.csv' | sort | head -n 1)
           test -n "$csv"
-          cp "$csv" "$RUNNER_TEMP/us-corporate-latest.csv"
-          gh release upload latest-reports "$RUNNER_TEMP/us-corporate-latest.csv" --clobber
+          gh release upload latest-reports "$csv" --clobber
