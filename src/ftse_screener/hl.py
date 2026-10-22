@@ -113,8 +113,23 @@ def discover(get=fetch, pause=time.sleep):
             continue
         if len(visited) >= 10:
             raise ValueError('Unexpected HL pagination')
-        parser = ListingParser()
-        parser.feed(get(url))
+        for attempt in range(3):
+            html = get(url)
+            parser = ListingParser()
+            parser.feed(html)
+            rejected = 'request rejected' in html.lower() or 'the requested url was rejected' in html.lower()
+            if parser.links and not rejected:
+                break
+            if hasattr(get, 'invalidate'):
+                get.invalidate(url)
+            if attempt == 2:
+                reason = 'HL Request Rejected response' if rejected else 'no constituent links'
+                raise ValueError(
+                    f'Incomplete/unexpected FTSE universe: {reason} at {url} after 3 attempts; '
+                    f'response characters={len(html)}, {len(links)} links collected. '
+                    'No current report generated.'
+                )
+            pause(2 ** (attempt + 1))
         visited.add(url)
         links.update(parser.links)
         pending.update(parser.pages-visited)

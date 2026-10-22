@@ -399,3 +399,59 @@ def test_performance_retry_evicts_bad_cached_page(tmp_path, monkeypatch):
     assert calls == [PERFORMANCE]
     assert cached.read_text() == performance_table()
     assert (tmp_path / 'ftse-fetch-failure.html').read_text() == bad
+
+
+def constituent_page(start, count, pages=()):
+    return ''.join(f'<a href="/shares/shares-search-results/TEST{i}">Company {i}</a>'
+                   for i in range(start, start + count)) + ''.join(
+                       f'<a href="?page={page}">{page}</a>' for page in pages)
+
+
+def test_discover_retries_rejected_page_before_accepting_universe():
+    from ftse_screener.hl import discover, BASE
+    responses = {
+        BASE: [constituent_page(0, 110, (2, 3))],
+        BASE + '?page=2': ['<html><h1>Request Rejected</h1></html>', constituent_page(110, 110)],
+        BASE + '?page=3': [constituent_page(220, 110)],
+    }
+    calls = []
+    def get(url):
+        calls.append(url)
+        return responses[url].pop(0)
+    links = discover(get, lambda _: None)
+    assert len(links) == 330
+    assert calls.count(BASE + '?page=2') == 2
+    assert BASE + '?page=3' in calls
+
+
+def test_discover_rejected_page_fails_even_if_other_pages_could_meet_minimum():
+    from ftse_screener.hl import discover, BASE
+    calls = []
+    def get(url):
+        calls.append(url)
+        return constituent_page(0, 300, (2,)) if url == BASE else '<h1>Request Rejected</h1>'
+    with pytest.raises(ValueError, match=r'HL Request Rejected response.*page=2.*after 3 attempts'):
+        discover(get, lambda _: None)
+    assert calls.count(BASE + '?page=2') == 3
+
+
+def test_discover_retry_evicts_empty_cached_constituent_page(tmp_path, monkeypatch):
+    from ftse_screener import hl
+    import hashlib
+    from datetime import timezone
+    directory = tmp_path / 'hl-cache'
+    get = hl.cached_fetch(directory, pause=lambda _: None,
+                          now=datetime(2026, 10, 22, tzinfo=timezone.utc))
+    cached = directory / '2026-10-22' / (hashlib.sha256(hl.BASE.encode()).hexdigest() + '.html')
+    bad = '<html><h1>Request Rejected</h1></html>'
+    cached.write_text(bad)
+    monkeypatch.setattr(hl, 'fetch', lambda _: constituent_page(0, 350))
+    assert len(hl.discover(get, lambda _: None)) == 350
+    assert (tmp_path / 'ftse-fetch-failure.html').read_text() == bad
+    assert 'Request Rejected' not in cached.read_text()
+
+
+def test_discover_rejects_partial_valid_listing():
+    from ftse_screener.hl import discover
+    with pytest.raises(ValueError, match='Incomplete/unexpected FTSE universe: 220 links'):
+        discover(lambda _: constituent_page(0, 220), lambda _: None)
