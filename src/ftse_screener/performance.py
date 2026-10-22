@@ -1,5 +1,6 @@
 """Price-only trailing returns from HL's public paginated performance table."""
 from html.parser import HTMLParser
+import re
 from urllib.parse import urljoin
 
 from .engine import number
@@ -74,7 +75,26 @@ def fetch_performance(get, pause, observed):
             continue
         if len(visited) >= 10:
             raise ValueError('Unexpected performance pagination')
-        rows, pages = parse_performance(get(url),url,observed)
+        for attempt in range(3):
+            html = get(url)
+            rows, pages = parse_performance(html, url, observed)
+            if rows:
+                break
+            # HTTP 200 can contain an empty table or an intermediary error page.
+            # Evict it so a cached fetch really downloads again on the next try.
+            if hasattr(get, 'invalidate'):
+                get.invalidate(url)
+            if attempt == 2:
+                title = re.search(r'<title[^>]*>(.*?)</title>', html, re.I | re.S)
+                title = ' '.join(title.group(1).split())[:160] if title else '(no title)'
+                parser = PerformanceParser()
+                parser.feed(html)
+                raise ValueError(
+                    f'Incomplete performance table: 0 securities at {url} after 3 attempts; '
+                    f'response characters={len(html)}, table rows={len(parser.rows)}, title={title!r}. '
+                    'HL returned no usable performance rows; no current report generated.'
+                )
+            pause(2 ** (attempt + 1))
         if set(rows) & set(results):
             raise ValueError('Repeated HL performance page/tickers')
         results.update(rows)

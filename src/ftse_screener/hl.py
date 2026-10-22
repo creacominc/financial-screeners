@@ -253,6 +253,18 @@ def cached_fetch(directory, pause=None, now=None):
             stamp.write_text(json.dumps(dict(fetched_at_utc=now.isoformat())))
         observations[url] = now.date()
         return html
+    def invalidate(url):
+        """Evict an unusable daily response and retain it for failure diagnosis."""
+        digest = hashlib.sha256(url.encode()).hexdigest()
+        path = root / (digest + '.html')
+        if path.exists():
+            # The workflow uploads reports/ftse* even when refresh fails.
+            diagnostic = directory.parent / 'ftse-fetch-failure.html'
+            diagnostic.write_text(path.read_text(encoding='utf-8'), encoding='utf-8')
+            path.unlink()
+        observations.pop(url, None)
+
+    get.invalidate = invalidate
     get.cache_stats = stats
     get.observation_dates = observations
     return get

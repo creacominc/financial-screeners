@@ -335,3 +335,67 @@ def test_refresh_preserves_cached_forecast_observation_date(monkeypatch):
                         pause=lambda _: None, full_metrics=True)
     assert seen == [original]
     assert result['stocks'][0]['metrics']['forecast_eps_growth_pct']['date'] == '2026-10-12'
+
+
+def performance_table(start=0, count=300):
+    return '<table>' + ''.join(
+        '<tr>' + ''.join(f'<td>{v}</td>' for v in
+                        [f'T{i}', 'Company', '1', '2', '3', '4', '10', '15', '20', '50']) + '</tr>'
+        for i in range(start, start + count)) + '</table>'
+
+
+def test_performance_retries_empty_response_then_recovers():
+    from ftse_screener.performance import fetch_performance
+    responses = iter(['<html><title>Temporarily unavailable</title></html>', performance_table()])
+    pauses = []
+    result = fetch_performance(lambda _: next(responses), pauses.append, TODAY)
+    assert len(result) == 300
+    assert result['T0']['price_return_3y']['value'] == '20'
+    assert pauses == [2, 1]
+
+
+def test_performance_empty_response_fails_with_diagnostics():
+    from ftse_screener.performance import fetch_performance
+    calls = []
+    def get(url):
+        calls.append(url)
+        return '<html><title>Access denied</title></html>'
+    with pytest.raises(ValueError, match='0 securities.*after 3 attempts.*table rows=0.*Access denied'):
+        fetch_performance(get, lambda _: None, TODAY)
+    assert len(calls) == 3
+
+
+def test_performance_rejects_partial_universe():
+    from ftse_screener.performance import fetch_performance
+    with pytest.raises(ValueError, match='Incomplete performance table: 299 securities'):
+        fetch_performance(lambda _: performance_table(count=299), lambda _: None, TODAY)
+
+
+def test_performance_rejects_duplicate_paginated_tickers():
+    from ftse_screener.performance import fetch_performance, PERFORMANCE
+    def get(url):
+        return performance_table() + f'<a href="{PERFORMANCE}?page=2">Next</a>'
+    with pytest.raises(ValueError, match='Repeated HL performance page/tickers'):
+        fetch_performance(get, lambda _: None, TODAY)
+
+
+def test_performance_retry_evicts_bad_cached_page(tmp_path, monkeypatch):
+    from ftse_screener import hl
+    from ftse_screener.performance import fetch_performance, PERFORMANCE
+    import hashlib
+    from datetime import timezone
+    now = datetime(2026, 10, 22, tzinfo=timezone.utc)
+    directory = tmp_path / 'hl-cache'
+    get = hl.cached_fetch(directory, pause=lambda _: None, now=now)
+    bad = '<html><title>Temporary upstream error</title></html>'
+    cached = directory / '2026-10-22' / (hashlib.sha256(PERFORMANCE.encode()).hexdigest() + '.html')
+    cached.write_text(bad)
+    calls = []
+    def fetch(url):
+        calls.append(url)
+        return performance_table()
+    monkeypatch.setattr(hl, 'fetch', fetch)
+    assert len(fetch_performance(get, lambda _: None, TODAY)) == 300
+    assert calls == [PERFORMANCE]
+    assert cached.read_text() == performance_table()
+    assert (tmp_path / 'ftse-fetch-failure.html').read_text() == bad
