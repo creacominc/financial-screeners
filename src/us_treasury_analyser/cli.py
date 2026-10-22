@@ -1,3 +1,4 @@
+from gilt_analyser.trading_dates import default_settlement_date
 import argparse
 import csv
 from datetime import date
@@ -19,7 +20,7 @@ def main() -> None:
     parser.add_argument("--max-quote-age-days", type=int, default=7, help="maximum published quote age before settlement (default: 7)")
     parser.add_argument("--investment", required=True, type=decimal_argument, help="USD budget per security")
     parser.add_argument("--fee", type=decimal_argument, default=Decimal("0"), help="USD dealing fee per purchase")
-    parser.add_argument("--settlement-date", required=True, type=date.fromisoformat, help="actual settlement date YYYY-MM-DD")
+    parser.add_argument("--settlement-date", type=date.fromisoformat, default=default_settlement_date("US"), help="YYYY-MM-DD (default: next US trading date)")
     parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--skip-unaffordable", action="store_true", help="report offers exceeding the budget in a separate exclusions CSV")
     args = parser.parse_args()

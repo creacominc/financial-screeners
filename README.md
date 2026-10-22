@@ -68,7 +68,7 @@ gilt-analyser examples/gilts.csv \\
   --output reports/gilts-2026-07-22
 ```
 
-This creates `reports/gilts-2026-07-22.csv` and `.xlsx`. If `--settlement-date` is omitted, today's date is used. The investment is a budget **per gilt comparison**, not divided across the rows. Nominal holdings are rounded down to the nearest £0.01 so the fee and dirty consideration do not exceed the budget; unused cash is reported. Yield is measured on capital actually deployed.
+This creates `reports/gilts-2026-07-22.csv` and `.xlsx`. If `--settlement-date` is omitted, the next UK trading date after today's London date is used (weekends and England/Wales bank holidays are skipped). Explicit dates are preserved. The investment is a budget **per gilt comparison**, not divided across the rows. Nominal holdings are rounded down to the nearest £0.01 so the fee and dirty consideration do not exceed the budget; unused cash is reported. Yield is measured on capital actually deployed.
 
 ## Run from a phone with GitHub Actions
 
@@ -119,9 +119,19 @@ these historical returns are not annualised yields or forecasts.
 Relevant changes pushed to `main` automatically run the bond comparison, including
 tests, current public quotes, reports and the Actions summary. Automatic runs use
 a 5,000 budget per security (GBP gilts / USD Treasuries), fees of GBP 11.95 / USD 0,
-and a 24-month fetch window. The London calendar date is the calculation date; it
-is not a broker-confirmed settlement date. Use **Run workflow** to choose actual
+and a 24-month fetch window. The default calculation date is the next market trading date after today in
+Europe/London, skipping weekends and market holidays (England/Wales for gilts;
+US federal and NYSE holidays for USD bonds). This is a model assumption,
+not a broker-confirmed settlement date. Explicit dates are preserved. Use **Run workflow** to choose actual
 settlement and different inputs. Treasury public quotes remain indicative.
+
+Calendar defaults also apply to the Treasury and corporate-bond command-line
+tools. UK holiday examples follow [England/Wales bank holidays](https://www.gov.uk/bank-holidays);
+US bond-market closures include Columbus Day and Veterans Day, consistent with
+[SIFMA holiday recommendations](https://www.sifma.org/news/press-releases/sifma-issues-2026-and-2027-fixed-income-recommendations-for-full-early-holiday-closes-in-the-u-s-u-k-and-japan).
+The calendar uses the installed `holidays` package; early closes still count as
+trading dates. These defaults do not model broker cutoffs or confirm settlement.
+
 
 ## USD corporate bonds
 

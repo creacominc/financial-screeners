@@ -102,6 +102,8 @@ these historical returns are not annualised yields or forecasts.
 Relevant changes pushed to `main` automatically run the bond comparison, including
 tests, current public quotes, reports and the Actions summary. Automatic runs use
 a 5,000 budget per security (GBP gilts / USD Treasuries), fees of GBP 11.95 / USD 0,
-and a 24-month fetch window. The London calendar date is the calculation date; it
-is not a broker-confirmed settlement date. Use **Run workflow** to choose actual
+and a 24-month fetch window. The default calculation date is the next market trading date after today in
+Europe/London, skipping weekends and market holidays (England/Wales for gilts;
+US federal and NYSE holidays for USD bonds). This is a model assumption,
+not a broker-confirmed settlement date. Explicit dates are preserved. Use **Run workflow** to choose actual
 settlement and different inputs. Treasury public quotes remain indicative.

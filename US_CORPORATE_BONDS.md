@@ -25,7 +25,7 @@ us-corporate-fetch-public --settlement-date 2026-10-20 --investment 5000 --fee 0
 python -m us_corporate_analyser.public_fetcher --settlement-date 2026-10-20 --investment 5000 --fee 0
 ```
 
-The example date above is a model date, not broker-confirmed settlement. Blank Action dates and automatic pushes use the London calendar date, without holiday/settlement adjustments. Files use `reports/us-corporate-research-YYYY-MM-DD.*`; the `_source/` directory contains each fetched page and a manifest. Empty research results still produce a clear zero-count summary and exclusions. A public website's schema may change; this is not a vendor-supported API.
+The example date above is a model date, not broker-confirmed settlement. Omitted CLI dates, blank Action dates and automatic pushes use the next US trading date after today in Europe/London, skipping weekends, US federal holidays and NYSE holidays. Explicit dates are preserved; this is a model assumption rather than broker-confirmed settlement. Files use `reports/us-corporate-research-YYYY-MM-DD.*`; the `_source/` directory contains each fetched page and a manifest. Empty research results still produce a clear zero-count summary and exclusions. A public website's schema may change; this is not a vendor-supported API.
 
 ## Optional supplied broker quotes
 

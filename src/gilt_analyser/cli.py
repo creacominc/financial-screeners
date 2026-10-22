@@ -1,3 +1,4 @@
+from gilt_analyser.trading_dates import default_settlement_date
 import argparse
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -19,7 +20,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("input_csv", type=Path)
     parser.add_argument("--investment", required=True, type=decimal_argument, help="cash budget per gilt, in GBP")
     parser.add_argument("--fee", type=decimal_argument, default=Decimal("11.95"), help="HL dealing fee per purchase")
-    parser.add_argument("--settlement-date", type=date.fromisoformat, default=date.today(), help="YYYY-MM-DD (default: today)")
+    parser.add_argument("--settlement-date", type=date.fromisoformat, default=default_settlement_date("UK"), help="YYYY-MM-DD (default: next UK trading date)")
     parser.add_argument("--output", type=Path, default=None, help="output filename prefix")
     return parser
 

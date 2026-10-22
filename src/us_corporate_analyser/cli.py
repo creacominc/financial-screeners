@@ -1,3 +1,4 @@
+from gilt_analyser.trading_dates import default_settlement_date
 import argparse
 import shutil
 from datetime import date
@@ -13,7 +14,7 @@ from .screening import exclusion_reason
 def main():
     parser = argparse.ArgumentParser(description='Screen supplied USD corporate bond offers; no automatic inventory feed')
     parser.add_argument('input_csv', type=Path)
-    parser.add_argument('--settlement-date', type=date.fromisoformat, required=True)
+    parser.add_argument('--settlement-date', type=date.fromisoformat, default=default_settlement_date('US'), help='YYYY-MM-DD (default: next US trading date)')
     parser.add_argument('--investment', type=decimal_argument, required=True, help='USD budget per bond')
     parser.add_argument('--fee', type=decimal_argument, default=Decimal('0'), help='Total USD fee per purchase; include applicable broker charges')
     parser.add_argument('--months', type=int, default=24)

@@ -3,6 +3,8 @@
 No account, authentication, broker availability, Moody's clearance or execution
 review is inferred. Public's callable flag is not contractual verification.
 """
+from gilt_analyser.trading_dates import default_settlement_date
+
 import argparse
 import csv
 import html
@@ -293,7 +295,7 @@ def write_discovery(rows, excluded, prefix, context):
 
 def main():
     parser = argparse.ArgumentParser(description='Automatically fetch public corporate bond research; all projections require review')
-    parser.add_argument('--settlement-date', type=date.fromisoformat, required=True, help='Explicit model date; not broker-confirmed')
+    parser.add_argument('--settlement-date', type=date.fromisoformat, default=default_settlement_date('US'), help='Model date (default: next US trading date); not broker-confirmed')
     parser.add_argument('--investment', type=decimal_argument, default=Decimal('5000'))
     parser.add_argument('--fee', type=decimal_argument, default=Decimal('0'))
     parser.add_argument('--months', type=int, default=24)
