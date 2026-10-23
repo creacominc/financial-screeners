@@ -139,7 +139,10 @@ def discover(get=fetch, pause=time.sleep):
     return sorted(links)
 
 
-def refresh(data, get=fetch, pause=time.sleep, discover_universe=False, full_metrics=False):
+def refresh(data, get=fetch, pause=time.sleep, discover_universe=False, full_metrics=False,
+            universe_source="hl", lse_get=None):
+    if universe_source not in ('hl', 'lse'):
+        raise ValueError('Unsupported FTSE universe source')
     result = copy.deepcopy(data)
     if data.get('illustrative'):
         raise ValueError('Use a real configuration, not the illustrative snapshot, for HL refresh')
@@ -162,11 +165,22 @@ def refresh(data, get=fetch, pause=time.sleep, discover_universe=False, full_met
             result['execution_error'] = str(error)
     failures = []
     stocks = {s['isin']:s for s in result['stocks']}
-    urls = discover(get, pause) if discover_universe else [s['hl_url'] for s in result['stocks']]
+    identities = {}
+    membership_source = BASE
+    if discover_universe and universe_source == 'lse':
+        from .lse import fetch_constituents, fetch as fetch_lse, SOURCE
+        constituents = fetch_constituents(lse_get or fetch_lse)
+        identities = {row['hl_url']: row for row in constituents}
+        membership_source = SOURCE
+        urls = sorted(identities)
+    else:
+        urls = discover(get, pause) if discover_universe else [s['hl_url'] for s in result['stocks']]
     member_isins = set()
     for index, url in enumerate(urls, 1):
         html = get(url)
         parsed = parse_factsheet(html, url)
+        if identities and parsed['isin'] != identities[url]['isin']:
+            raise ValueError('LSE/HL ISIN mismatch; constituent identity requires review')
         if full_metrics:
             parsed['metrics'].update(performance.get(parsed['ticker'],{}))
             if parsed['security_type'] not in ('investment_trust','etf'):
@@ -198,19 +212,19 @@ def refresh(data, get=fetch, pause=time.sleep, discover_universe=False, full_met
         old.setdefault('metrics', {}).update(parsed['metrics'])
         old['data_warnings'] = [f['error'] for f in failures if f['ticker'] == parsed['ticker']]
         if discover_universe:
-            old['membership'] = dict(ftse350=True, date=today, source=BASE)
+            old['membership'] = dict(ftse350=True, date=today, source=membership_source)
         stocks[isin] = old
         pause(1)
     if discover_universe:
         for isin, stock in stocks.items():
             if isin not in member_isins:
-                stock['membership'] = dict(ftse350=False, date=today, source=BASE)
+                stock['membership'] = dict(ftse350=False, date=today, source=membership_source)
     result['stocks'] = list(stocks.values())
     populate_policy(result)
     apply_reviews(result)
     result['refresh'] = dict(status='LIVE HL public fields refreshed; gate reviews retain original review dates',
                              financial_data_gaps=failures, constituent_count=len(member_isins),
-                             performance_count=len(performance), full_metrics=full_metrics,
+                             performance_count=len(performance), full_metrics=full_metrics, universe_source=membership_source,
                              fetched_at_utc=datetime.now(timezone.utc).isoformat(), universe_refreshed=discover_universe)
     if hasattr(get,'cache_stats'):
         result['refresh']['hl_page_cache'] = dict(get.cache_stats)
@@ -292,10 +306,11 @@ def main():
     parser.add_argument('--full-metrics', action='store_true', help='include public financial history, forecasts and price-return table')
     parser.add_argument('--cache-dir', type=Path, help='optional daily market / seven-day financial HTML cache')
     parser.add_argument('--discover-universe', action='store_true', help='fetch all FTSE350 factsheets (one request/second)')
+    parser.add_argument('--universe-source', choices=('hl', 'lse'), default='hl', help='constituent source when discovering (default: hl); lse still uses HL prices and fundamentals')
     args = parser.parse_args()
     try:
         get = cached_fetch(args.cache_dir) if args.cache_dir else fetch
-        result = refresh(json.loads(args.input.read_text(), parse_float=Decimal), get=get, pause=(lambda seconds: None) if args.cache_dir else time.sleep, discover_universe=args.discover_universe, full_metrics=args.full_metrics)
+        result = refresh(json.loads(args.input.read_text(), parse_float=Decimal), get=get, pause=(lambda seconds: None) if args.cache_dir else time.sleep, discover_universe=args.discover_universe, full_metrics=args.full_metrics, universe_source=args.universe_source)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(result, default=str, indent=2)+'\n')
     except (OSError, ValueError, KeyError, TypeError) as error:

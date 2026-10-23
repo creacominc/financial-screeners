@@ -132,3 +132,10 @@ same rank basis. `rank_change` is prior minus current rank: positive means an
 improvement. Missing history, new entrants and incompatible comparisons show
 `N/A`, never an invented zero. The first run starts a baseline; cache eviction can
 reset it. Local runs can use `--previous-report path/to/previous-report.json`.
+
+## Alternative market-data sources
+
+See [replacement-source evaluation](FTSE_DATA_SOURCES.md) for the tested LSE
+constituent adapter (`--universe-source lse`), historical-price candidates and
+remaining coverage/access requirements. The optional LSE adapter replaces only
+membership discovery; HL performance and factsheet access remain dependencies.
