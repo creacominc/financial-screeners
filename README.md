@@ -40,6 +40,38 @@ pytest
 
 On Windows PowerShell, activate with `.venv\\Scripts\\Activate.ps1`.
 
+## Run all four screeners locally on macOS
+
+After setup, run this from the repository folder. Virtual-environment activation
+is not needed:
+
+```bash
+make reports
+```
+
+This fetches UK gilts (HL), US Treasuries (WSJ), US corporate bonds (Public),
+and FTSE equities (HL, without LSE). On success, Finder opens a new folder
+containing exactly four dated CSV reports. Each run has its own folder under
+`reports/local-runs/`: `csv/` holds those four files; `details/` holds source
+snapshots, other report formats and a log for each command. If a command fails,
+the run stops, prints the log location and does not open a completed-results
+folder. Previous runs are retained. Nothing is uploaded or published.
+
+The command uses `.venv/bin/python` and its installed tools. On macOS it uses
+`/etc/ssl/cert.pem` unless `SSL_CERT_FILE` is already set; HTTPS verification
+remains enabled. The first FTSE refresh can take several minutes. Later runs
+reuse the existing daily/seven-day HL cache policy in `reports/hl-cache-local`.
+Successful runs save FTSE rank history for comparison on the next run.
+
+Defaults match the automatic workflows: 5,000 GBP per gilt with an 11.95 GBP
+fee, 5,000 USD per Treasury/corporate bond with zero configured fee, and a
+24-month bond maturity window. Corporate research uses an S&P floor of A- and
+remains REVIEW-only, not an executable offer. Bond filenames use the next UK/US
+market trading date (a model assumption, not broker confirmation); FTSE filenames
+use today's London date. Currencies and reports remain separate.
+
+Run the automated tests separately with `make test`.
+
 ## Input CSV
 
 See `examples/gilts.csv`. Required columns are:
